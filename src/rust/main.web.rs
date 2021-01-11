@@ -3,7 +3,6 @@
 extern crate base64;
 extern crate rand;
 extern crate serde_json;
-extern crate wasm_glue;
 
 #[macro_use]
 extern crate serde_derive;
@@ -36,11 +35,6 @@ use zmachine::Zmachine;
 
 // thread local mutable global
 thread_local!(static ZVM: RefCell<Option<Zmachine>> = RefCell::new(None););
-
-#[no_mangle]
-pub fn hook() {
-    wasm_glue::hook();
-}
 
 #[no_mangle]
 pub fn allocate(length: usize) -> *mut c_void {
