@@ -34,6 +34,7 @@ module.exports = {
       { from: './src/dev.html', to: './index.html' },
       { from: './src/*.css', to: './[name].[ext]' },
       { from: './src/img/**.*', to: './img/[name].[ext]' },
+      { from: './electron/**.*', to: './[name].[ext]' },
     ]),
   ],
 

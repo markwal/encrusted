@@ -12,9 +12,10 @@ import reducer from './reducer';
 
 const store = createStore(reducer, applyMiddleware(middleware));
 
-const basename = (process.env.NODE_ENV === 'production')
-  ? '/encrusted'
-  : '/';
+const basename = '/';
+//const basename = (process.env.NODE_ENV === 'production')
+//  ? '/encrusted'
+//  : '/';
 
 ReactDOM.render(
   <Provider store={store}>
