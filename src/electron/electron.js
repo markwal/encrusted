@@ -3,14 +3,14 @@ const path = require('path')
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
     webPreferences: {
       contextIsolation: true
     }
   })
 
-  win.loadURL(`file://${path.join(__dirname, '../build/index.html')}`)
+  win.loadURL(`file://${path.join(__dirname, 'index.html')}`)
  
   win.webContents.openDevTools()
 }

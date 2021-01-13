@@ -9,14 +9,14 @@ module.exports = {
   devtool: 'source-map',
 
   entry: {
-    bundle: './src/js/index.js',
+    bundle: './src/js/electron-index.js',
     worker: './src/js/worker.js',
   },
 
   output: {
     filename: '[name].js',
     sourceMapFilename: '[name].map',
-    path: path.join(__dirname, '/build'),
+    path: path.join(__dirname, '/electron'),
   },
 
   module: {
@@ -33,6 +33,7 @@ module.exports = {
   },
 
   optimization: {
+    minimize: false,
     minimizer: [
       new TerserPlugin({
         exclude: /\.min\.js$/gi,
@@ -44,16 +45,17 @@ module.exports = {
 
   plugins: [
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify('production')
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.ENCRUSTEDROOT': JSON.stringify('./')
     }),
 
     new webpack.optimize.ModuleConcatenationPlugin(),
 
     new CopyWebpackPlugin([
-      { from: './src/*.html', to: './[name].[ext]' },
       { from: './src/*.css', to: './[name].[ext]' },
       { from: './src/img/**.*', to: './img/[name].[ext]' },
       { from: './src/electron/**.*', to: './[name].[ext]' },
+      { from: './build/*.wasm', to: './[name].[ext]' },
     ]),
   ]
 };

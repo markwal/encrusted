@@ -44,7 +44,8 @@ module.exports = {
 
   plugins: [
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify('production')
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env.ENCRUSTEDROOT': JSON.stringify('/encrusted/')
     }),
 
     new webpack.optimize.ModuleConcatenationPlugin(),
@@ -53,7 +54,6 @@ module.exports = {
       { from: './src/*.html', to: './[name].[ext]' },
       { from: './src/*.css', to: './[name].[ext]' },
       { from: './src/img/**.*', to: './img/[name].[ext]' },
-      { from: './src/electron/**.*', to: './[name].[ext]' },
     ]),
   ]
 };

@@ -59,10 +59,8 @@ class LocalStore {
 }
 
 
-const url = 'worker.js'
-//const url = (process.env.NODE_ENV === 'production')
-//  ? '/encrusted/worker.js'
-//  : '/worker.js';
+const url = process.env.ENCRUSTEDROOT + 'worker.js'
+console.log("worker url: ", url)
 
 const worker = new WorkerController(url);
 

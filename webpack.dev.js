@@ -30,11 +30,14 @@ module.exports = {
   },
 
   plugins: [
+    new webpack.DefinePlugin({
+      'process.env.ENCRUSTEDROOT': JSON.stringify('/')
+    }),
+
     new CopyWebpackPlugin([
       { from: './src/dev.html', to: './index.html' },
       { from: './src/*.css', to: './[name].[ext]' },
       { from: './src/img/**.*', to: './img/[name].[ext]' },
-      { from: './electron/**.*', to: './[name].[ext]' },
     ]),
   ],
 

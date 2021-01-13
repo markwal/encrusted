@@ -1,11 +1,8 @@
 import { Wrapper, rust } from 'wasm-ffi';
 
-
-const wasmURL = 'web.wasm';
-//const wasmURL = (process.env.NODE_ENV === 'production')
-//  ? '/encrusted/web.wasm'
-//  : '/web.wasm';
-
+// const wasmURL = 'web.wasm';
+const wasmURL = process.env.ENCRUSTEDROOT + "web.wasm"
+console.log('wasmURL ', wasmURL)
 
 // hold onto active file in case of restarts
 let file = null;
