@@ -1935,3 +1935,125 @@ textPath.path-label {
         margin: 25px auto auto;
     }
 }
+
+@media (prefers-color-scheme: dark) {
+    html {
+        background: black;
+        color: lightgrey;
+    }
+    body {
+        color:#dedad6;
+        background-color:#111
+    }
+    pre.danger {
+        background: black;
+        color: #7b0909;
+    }
+    #wasm-warning {
+        background: black;
+        color: #a71a25;
+    }
+    #wasm-warning i {
+        color: #d71e38;
+    }
+    .header > div {
+        background: #181818;
+        color: #888;
+    }
+    .launcher .files {
+        background: #242524;
+        background-image: linear-gradient(62deg, #191f22 0%, #0e1012 100%);
+    }
+    .footer {
+        background: #080808;
+        border-top: 1px solid #232323;
+    }
+    .footer .contents {
+        color: #8b8a88;
+    }
+    .footer-link a {
+        color: #ccc;
+    }
+    .footer .contents a {
+        color: #9e9c9c;
+    }
+    .ReactModal__Overlay--after-open {
+        background-color: rgba(0, 0, 0, 0.87) !important;
+    }
+    .modal {
+        background: #222;
+    }
+    .modal > .close {
+        color: #404040;
+    }
+    .modal > .close:hover {
+        color: #eee;
+    }
+    .modal h4 {
+        color: #eee;
+    }
+    .hotkey {
+        border: 1px solid #353535;
+        background: linear-gradient(#020202, #060606);
+    }
+    button, .button {
+        background: linear-gradient(#030303, #070707);
+        border: 1px solid #2c2c2c;
+    }
+    button:hover, .button:hover {
+        background: linear-gradient(#050505, #0c0c0c);
+    }
+    button:active, .button:active {
+        background: #0c0c0c;
+        box-shadow: inset 0 2px 7px rgba(206, 206, 206, 0.08); /* #31313114 */
+    }
+    button.alert i,
+    button.danger i {
+        color: #464646;
+    }
+    button.inverted {
+        color: black;
+        background: linear-gradient(#948f8e, #bdb6b5);
+        border: 1px solid #b3b0af;
+    }
+    button.inverted:hover {
+        background: #c4b5b2;
+        border: 1px solid #ddd3d0;
+    }
+    select:hover {
+        background: #040404;
+        border: 1px solid #5a5a5a;
+    }
+    button.group-left {
+        background: linear-gradient(#040404, #0f0f0f);
+    }
+    input.link {
+        border: 1px solid #2c2c2c;
+        background: #050505;
+        color: #777;
+    }
+    .sidebar {
+        background: rgba(0, 0, 0, 0.93);
+    }
+    .sidebar li .text {
+        background: rgba(249, 249, 249, 0.71);
+        color: black;
+    }
+    .sidebar span.information:hover {
+        border: 1px solid #ddd;
+        color: #ddd;
+    }
+    .sidebar li i.ion-grid {
+        color: #aaa;
+    }
+    .sidebar li i:hover {
+        color: #ccc;
+        border-right: 4px solid #222;
+    }
+    input {
+        color: whitesmoke;
+    }
+    button {
+        color: whitesmoke;
+    }
+}
