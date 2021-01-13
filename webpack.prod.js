@@ -23,20 +23,22 @@ module.exports = {
     rules: [
       {
         test: /.jsx?$/,
-        loader: 'babel-loader',
         exclude: /node_modules/,
-        query: {
-          presets: ['@babel/preset-react'],
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          }
         }
-      },
-    ],
+      }
+    ]
   },
 
   optimization: {
+    minimize: true,
     minimizer: [
       new TerserPlugin({
         exclude: /\.min\.js$/gi,
-        sourceMap: true,
         parallel: true,
       }),
     ],
@@ -50,10 +52,12 @@ module.exports = {
 
     new webpack.optimize.ModuleConcatenationPlugin(),
 
-    new CopyWebpackPlugin([
-      { from: './src/*.html', to: './[name].[ext]' },
-      { from: './src/*.css', to: './[name].[ext]' },
-      { from: './src/img/**.*', to: './img/[name].[ext]' },
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: './src/dev.html', to: './index.html' },
+        { from: './src/*.css', to: './[name].[ext]' },
+        { from: './src/img/**.*', to: './img/[name].[ext]' },
+      ],
+    }),
   ]
 };

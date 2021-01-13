@@ -23,13 +23,15 @@ module.exports = {
     rules: [
       {
         test: /.jsx?$/,
-        loader: 'babel-loader',
         exclude: /node_modules/,
-        query: {
-          presets: ['@babel/preset-react'],
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          }
         }
-      },
-    ],
+      }
+    ]
   },
 
   optimization: {
@@ -37,7 +39,6 @@ module.exports = {
     minimizer: [
       new TerserPlugin({
         exclude: /\.min\.js$/gi,
-        sourceMap: true,
         parallel: true,
       }),
     ],
@@ -51,11 +52,13 @@ module.exports = {
 
     new webpack.optimize.ModuleConcatenationPlugin(),
 
-    new CopyWebpackPlugin([
-      { from: './src/*.css', to: './[name].[ext]' },
-      { from: './src/img/**.*', to: './img/[name].[ext]' },
-      { from: './src/electron/**.*', to: './[name].[ext]' },
-      { from: './build/*.wasm', to: './[name].[ext]' },
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: './src/*.css', to: './[name].[ext]' },
+        { from: './src/img/**.*', to: './img/[name].[ext]' },
+        { from: './src/electron/**.*', to: './[name].[ext]' },
+        { from: './build/*.wasm', to: './[name].[ext]' },
+      ],
+    }),
   ]
 };

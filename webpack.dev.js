@@ -21,10 +21,12 @@ module.exports = {
     rules: [
       {
         test: /.jsx?$/,
-        loader: 'babel-loader',
         exclude: /node_modules/,
-        query: {
-          presets: ['@babel/preset-react'],
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          }
         }
       }
     ]
@@ -35,11 +37,13 @@ module.exports = {
       'process.env.ENCRUSTEDROOT': JSON.stringify('/')
     }),
 
-    new CopyWebpackPlugin([
-      { from: './src/dev.html', to: './index.html' },
-      { from: './src/*.css', to: './[name].[ext]' },
-      { from: './src/img/**.*', to: './img/[name].[ext]' },
-    ]),
+    new CopyWebpackPlugin({
+      patterns: [
+        { from: './src/dev.html', to: './index.html' },
+        { from: './src/*.css', to: './[name].[ext]' },
+        { from: './src/img/**.*', to: './img/[name].[ext]' },
+      ],
+    }),
   ],
 
   devServer: {

@@ -16,7 +16,7 @@
     "build:release": "cargo +nightly build --lib --target=\"wasm32-unknown-unknown\" --release && cp ./target/wasm32-unknown-unknown/release/web.wasm ./build/web.wasm",
     "bundle:electron": "webpack --config ./webpack.electron.js --progress",
     "release": "npm run bundle && npm run build:release",
-    "dev": "webpack-dev-server --config ./webpack.dev.js --content-base ./build --host 0.0.0.0 --port 8000 --no-inline",
+    "dev": "webpack serve --config ./webpack.dev.js --content-base ./build --host 0.0.0.0 --port 8000 --inline false",
     "clippy": "cargo clippy -- -A unreadable_literal -A cast_lossless -Z no-trans",
     "clippy-lite": "cargo clippy -- -A unreadable_literal -A cast_lossless -A match_same_arms -A match_overlapping_arm -Z no-trans",
     "test": "cargo build --bin encrusted && ./tests/runtests.sh"
@@ -41,11 +41,12 @@
     "@babel/core": "^7.12.10",
     "@babel/preset-react": "^7.12.10",
     "babel-loader": "^8.2.2",
-    "copy-webpack-plugin": "^4.6.0",
+    "copy-webpack-plugin": "7.0.0",
     "electron": "^11.2.0",
-    "terser-webpack-plugin": "^1.4.5",
-    "webpack": "^4.46.0",
-    "webpack-cli": "^3.3.12",
+    "electron-builder": "^22.9.1",
+    "terser-webpack-plugin": "5.1.1",
+    "webpack": "^5.13.0",
+    "webpack-cli": "^4.3.1",
     "webpack-dev-server": "^3.11.2"
   }
 }
