@@ -11,6 +11,10 @@
 
 ---
 
+#### This fork
+
+This fork adds an Electron App wrapper so that Encrusted can be installed locally
+
 #### A z-machine (interpreter) for Infocom-era text adventure games like Zork
 
 Runs in a web interface or directly in a terminal.
