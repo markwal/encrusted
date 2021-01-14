@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -20,28 +21,9 @@
 </head>
 
 <body>
-    <div id="wasm-warning" class="hidden">
-        <div class="max-container">
-            <div class="content row">
-                <i class="ion-alert-circled"></i>
-                <span>
-                    <h4 class="mb-0"> Unsupported Browser :(</h4>
-                    <p class="mb-0">Your browser doesn't support WebAssembly yet.</p>
-                </span>
-            </div>
-        </div>
-    </div>
-
     <div id="root"></div>
 
-    <script>
-        if (typeof WebAssembly === 'undefined') {
-            document.getElementById('wasm-warning').classList.remove('hidden');
-        }
-    </script>
-
     <script src="bundle.js"></script>
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
 </body>
 
 </html>
