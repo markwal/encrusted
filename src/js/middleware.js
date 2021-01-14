@@ -60,7 +60,6 @@ class LocalStore {
 
 
 const url = process.env.ENCRUSTEDROOT + 'worker.js'
-console.log("worker url: ", url)
 
 const worker = new WorkerController(url);
 

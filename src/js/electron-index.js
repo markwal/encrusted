@@ -13,7 +13,6 @@ import reducer from './reducer';
 const store = createStore(reducer, applyMiddleware(middleware));
 
 const basename = process.env.ENCRUSTEDROOT;
-console.log('basename at init: ', basename)
 console.log('window.location.pathname is ', window.location.pathname)
 
 ReactDOM.render(
