@@ -15,11 +15,21 @@
     "build:debug": "cargo +nightly build --lib --target=\"wasm32-unknown-unknown\" && cp ./target/wasm32-unknown-unknown/debug/web.wasm ./build/web.wasm",
     "build:release": "cargo +nightly build --lib --target=\"wasm32-unknown-unknown\" --release && cp ./target/wasm32-unknown-unknown/release/web.wasm ./build/web.wasm",
     "bundle:electron": "webpack --config ./webpack.electron.js --progress",
+    "pack:electron": "npm run bundle:electron && electron-builder --dir",
+    "dist:electron": "npm run bundle:electron && electron-builder",
     "release": "npm run bundle && npm run build:release",
     "dev": "webpack serve --config ./webpack.dev.js --content-base ./build --host 0.0.0.0 --port 8000 --inline false",
     "clippy": "cargo clippy -- -A unreadable_literal -A cast_lossless -Z no-trans",
     "clippy-lite": "cargo clippy -- -A unreadable_literal -A cast_lossless -A match_same_arms -A match_overlapping_arm -Z no-trans",
     "test": "cargo build --bin encrusted && ./tests/runtests.sh"
+  },
+  "build": {
+    "appId": "io.github.markwal.encrusted",
+    "files": [
+      "electron/**/*",
+      "node_modules/**/*",
+      "assets/**/*"
+    ]
   },
   "dependencies": {
     "d3": "^3.5.17",
