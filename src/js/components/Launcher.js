@@ -17,6 +17,10 @@ class Launcher extends Component {
 
     this.onMouseEnter = this.onMouseEnter.bind(this);
     this.onDrop = this.onDrop.bind(this);
+
+    fileDB.keys().then(keys => this.setState({
+      files: keys.filter(key => !~['zork1', 'zork2', 'zork3'].indexOf(key)),
+    }));
   }
 
   onMouseEnter(ev) {
@@ -70,12 +74,6 @@ class Launcher extends Component {
     };
 
     reader.readAsArrayBuffer(file);
-  }
-
-  componentWillMount() {
-    fileDB.keys().then(keys => this.setState({
-      files: keys.filter(key => !~['zork1', 'zork2', 'zork3'].indexOf(key)),
-    }));
   }
 
   componentDidMount() {

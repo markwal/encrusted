@@ -14,10 +14,8 @@ class Transcript extends Component {
     this.submit = this.submit.bind(this);
     this.undo = this.undo.bind(this);
     this.redo = this.redo.bind(this);
-  }
 
-  componentWillMount() {
-    const filename = this.props.filename;
+    const filename = props.filename;
 
     const onErr = (err, msg) => {
       this.props.openModal(<ErrorModal err={err} msg={msg} />);
@@ -35,9 +33,10 @@ class Transcript extends Component {
     this.props.stop();
   }
 
-  componentWillUpdate() {
+  static getDerivedStateFromProps() {
     // child `Move` elements might talk, here we cancel when there is a change
     window.speechSynthesis && window.speechSynthesis.cancel();
+    return null;
   }
 
   componentDidUpdate() {
