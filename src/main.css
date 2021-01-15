@@ -2056,4 +2056,18 @@ textPath.path-label {
     button {
         color: whitesmoke;
     }
+    g.room rect {
+        fill: #111;
+    }
+    g.room text {
+        fill: #ddd;
+    }
+    g.room.active rect {
+        stroke: #aaa;
+        fill: #444;
+    }
+    g.room.active text {
+        fill: #fff;
+    }
 }
+
