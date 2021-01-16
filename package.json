@@ -2,7 +2,7 @@
   "name": "encrusted",
   "version": "1.0.0",
   "description": "A z-machine (interpreter) for Infocom-era text adventure games",
-  "main": "./electron/electron.js",
+  "main": "./electron/electronmain.js",
   "author": "Sterling DeMille <sterlingdemille+npm@gmail.com>",
   "license": "MIT",
   "repository": "https://github.com/demille/encrusted",

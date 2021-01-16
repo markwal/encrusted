@@ -1,19 +1,30 @@
-const { app, BrowserWindow, nativeTheme, shell } = require('electron')
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  nativeTheme,
+  shell
+} = require('electron')
 const path = require('path')
 
+let electronWindow;
+
 function createWindow() {
-  const win = new BrowserWindow({
-    width: 1200,
+  electronWindow = new BrowserWindow({
+    width: app.isPackaged ? 800 : 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
     backgroundColor: (nativeTheme.shouldUseDarkColors ? '#000' : '#FFF'),
     webPreferences: {
+      preload: path.join(__dirname, './preload.js'),
       contextIsolation: true
     }
   })
 
-  win.loadURL(`file://${path.join(__dirname, 'index.html')}`)
+  electronWindow.loadURL(`file://${path.join(__dirname, 'index.html')}`)
 
-  win.webContents.on('new-window', function(e, url) {
+  electronWindow.webContents.on('new-window', function(e, url) {
     u = new URL(url)
     console.log("new-window u.hostname ", u.hostname)
     console.log("new-window u.pathname ", u.pathname)
@@ -22,7 +33,7 @@ function createWindow() {
     shell.openExternal(url)
   })
 
-  win.webContents.on('will-navigate', function(e, url) {
+  electronWindow.webContents.on('will-navigate', function(e, url) {
     console.log("on will-navigate")
 
     u = new URL(url)
@@ -36,7 +47,7 @@ function createWindow() {
   })
 
   /* FUTURE when on 'new-window' is deprecated
-  win.webContents.setWindowOpenHandler(function({ url }) {
+  electronWindow.webContents.setWindowOpenHandler(function({ url }) {
     u = new URL(url)
     if (u.protocol === 'http:' || u.protocol === 'https:') {
       shell.openExternal(url)
@@ -46,9 +57,20 @@ function createWindow() {
   });
   */
 
+  // watch for maximize state change
+  electronWindow.on('maximize', () => { electronWindow.webContents.send('maximize') });
+  electronWindow.on('unmaximize', () => { electronWindow.webContents.send('unmaximize') });
+  // trigger one now for initial state
+  electronWindow.webContents.send(electronWindow.isMaximized ? "maximize" : "unmaximize")
+
   if (!app.isPackaged) {
-    win.webContents.openDevTools()
+    electronWindow.webContents.openDevTools()
   }
+ 
+  ipcMain.on('close', () => { electronWindow.close(); })
+  ipcMain.on('minimize', () => { electronWindow.minimize(); })
+  ipcMain.on('maximize', () => { electronWindow.maximize(); })
+  ipcMain.on('unmaximize', () => { electronWindow.unmaximize(); })
 }
 
 app.whenReady().then(createWindow)
