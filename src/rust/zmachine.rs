@@ -124,7 +124,7 @@ impl ObjectProperty {
 }
 
 pub struct Zmachine {
-    pub ui: Box<UI>,
+    pub ui: Box<dyn UI>,
     pub options: Options,
     pub instr_log: String,
     version: u8,
@@ -155,7 +155,7 @@ pub struct Zmachine {
 }
 
 impl Zmachine {
-    pub fn new(data: Vec<u8>, ui: Box<UI>, options: Options) -> Zmachine {
+    pub fn new(data: Vec<u8>, ui: Box<dyn UI>, options: Options) -> Zmachine {
         let memory = Buffer::new(data);
 
         let version = memory.read_byte(0x00);
