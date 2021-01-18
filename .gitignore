@@ -6,3 +6,4 @@
 /assets
 /dist
 tags
+.cargo/
