@@ -47,7 +47,11 @@ zmachine.imports(wrap => ({
 
     rand: function() {
       return Math.floor(Math.random() * 0xFFFF);
-    }
+    },
+
+    consolelog: wrap('string', (msg) => {
+      console.log(msg);
+    })
   },
 }));
 

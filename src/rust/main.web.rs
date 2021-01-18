@@ -9,13 +9,14 @@ extern crate serde_derive;
 extern crate enum_primitive;
 
 use std::cell::RefCell;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
+use std::io;
 
 extern "C" {
     fn js_message(mtype: *mut c_char, message: *mut c_char);
     fn rand() -> u32;
-//    fn consolelog(ptr: *const c_char);
+    fn consolelog(ptr: *const c_char);
 }
 
 mod buffer;
@@ -37,6 +38,17 @@ thread_local!(static ZVM: RefCell<Option<Zmachine>> = RefCell::new(None););
 
 #[no_mangle]
 pub fn hook() {
+    let _ = _consolelog("Hello World!");
+}
+
+pub fn _consolelog(buf: &str) -> io::Result<()> {
+    let cstring = CString::new(buf)?;
+
+    unsafe {
+        consolelog(cstring.as_ptr());
+    }
+
+    Ok(())
 }
 
 #[no_mangle]
