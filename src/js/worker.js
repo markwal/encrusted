@@ -13,6 +13,7 @@ function sendWorkerMessage(type, msg) {
 
 
 const zmachine = new Wrapper({
+  hook: [],
   create: [null, ['number', 'number']],
   feed: [null, ['string']],
   step: ['bool'],
@@ -59,7 +60,7 @@ function step() {
 
 function instantiate() {
   if (zmachine.exports) return Promise.resolve();
-  return zmachine.fetch(wasmURL);
+  return zmachine.fetch(wasmURL).then(() => zmachine.hook());
 }
 
 

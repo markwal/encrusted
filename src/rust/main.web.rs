@@ -1,5 +1,3 @@
-#![feature(slice_patterns)]
-
 extern crate base64;
 extern crate rand;
 extern crate serde_json;
@@ -17,6 +15,7 @@ use std::os::raw::{c_char, c_void};
 extern "C" {
     fn js_message(mtype: *mut c_char, message: *mut c_char);
     fn rand() -> u32;
+//    fn consolelog(ptr: *const c_char);
 }
 
 mod buffer;
@@ -35,6 +34,10 @@ use zmachine::Zmachine;
 
 // thread local mutable global
 thread_local!(static ZVM: RefCell<Option<Zmachine>> = RefCell::new(None););
+
+#[no_mangle]
+pub fn hook() {
+}
 
 #[no_mangle]
 pub fn allocate(length: usize) -> *mut c_void {
