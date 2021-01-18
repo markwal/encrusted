@@ -27,6 +27,8 @@ class Transcript extends Component {
         err => onErr(err, `Error getting story file: ${err}`),
       )
       .catch(err => onErr(err, `Unknown start up error: ${err}`));
+
+    this.state = {};
   }
 
   componentWillUnmount() {
