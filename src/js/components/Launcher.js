@@ -193,14 +193,18 @@ class Launcher extends Component {
 
                   <div className="col card">
                     <Dropzone
-                      className="dropzone"
                       multiple={false}
                       disablePreview={true}
                       ref={ref => this.zone = ref}
                       onDrop={this.onDrop}
                     >
-                      <i className="icon ion-android-add"></i>
-                      <span>Add a story file</span>
+                      {({getRootProps, getInputProps}) => (
+                        <div className="dropzone" {...getRootProps()}>
+                          <input {...getInputProps()} />
+                          <i className="icon ion-android-add"></i>
+                          <span>Add a story file</span>
+                        </div>
+                      )}
                     </Dropzone>
                   </div>
                 </div>
