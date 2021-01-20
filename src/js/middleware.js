@@ -168,6 +168,8 @@ const middleware = store => next => (action) => {
 
     // once its been loaded, check if there is a previous state to restore
     worker.once('loaded', () => {
+      worker.send('interpreter_header', store.getState().interpreter);
+
       const enabled = !!JSON.parse(localStorage.getItem('setting:instructions'));
       worker.send('enable:instructions', !!enabled);
 

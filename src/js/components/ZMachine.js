@@ -22,6 +22,19 @@ class ZMachine extends Component {
     super(props);
     this.showSettings = this.props.openModal.bind(this, <Settings />);
     this.showHelp = this.props.openModal.bind(this, <Help />);
+    this.saveScreenDimensions = this.props.saveScreenDimensions.bind(this);
+  }
+
+  componentDidMount() {
+    // FUTURE compute the fontSize from the monospace font
+    const fontSize = parseInt(window.getComputedStyle(this.divElement).fontSize, 10);
+    const vmScreenDimensions = {
+      height: this.divElement.clientHeight,
+      width: this.divElement.clientWidth,
+      fontHeight: fontSize,
+      fontWidth: Math.ceil(fontSize * 0.7),
+    };
+    this.saveScreenDimensions(vmScreenDimensions);
   }
 
   render() {
@@ -45,7 +58,7 @@ class ZMachine extends Component {
     const save = debounce(s => localStorage.setItem('setting:size', s), 500);
 
     return (
-      <div className={containerName}>
+      <div className={containerName} ref={ (divElement) => { this.divElement = divElement } }>
         <ModalController />
 
         <SplitPane split="vertical" defaultSize={size} onChange={save}>
@@ -64,5 +77,6 @@ export default connect(
   }),
   dispatch => ({
     openModal: child => dispatch({ type: 'MODAL::SHOW', child }),
+    saveScreenDimensions: data  => dispatch({ type: 'INTERPRETER', data }),
   }),
 )(ZMachine);

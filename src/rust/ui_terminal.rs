@@ -160,6 +160,7 @@ impl UI for TerminalUI {
     }
 
     // unimplemented, only used in web ui
+    fn erase_window(&mut self, window: i16) {}
     fn flush(&mut self) {}
     fn message(&self, _mtype: &str, _msg: &str) {}
 }

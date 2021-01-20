@@ -13,6 +13,7 @@ enum Token {
     Text(String),
     Object(String),
     Debug(String),
+    Erase,
 }
 
 #[derive(Debug)]
@@ -110,6 +111,9 @@ impl UI for WebUI {
                 Token::Debug(ref text) => {
                     write!(html, r#"<span class="debug">{}</span>"#, text).unwrap();
                 }
+                Token::Erase => {
+                    html.push_str("<div height=\"100%\"></div>");
+                }
             }
         }
 
@@ -130,6 +134,13 @@ impl UI for WebUI {
             js_message(type_ptr, msg_ptr);
             CString::from_raw(type_ptr); // free memory
             CString::from_raw(msg_ptr);
+        }
+    }
+
+    fn erase_window(&mut self, window: i16) {
+        if window == 0 {
+            self.buffer.push(Token::Erase);
+            self.flush();
         }
     }
 

@@ -944,6 +944,9 @@ impl Zmachine {
     // Web UI only
     #[allow(dead_code)]
     pub fn get_current_room(&self) -> (u16, String) {
+        if self.version > 3 {
+            return (0, "".to_string());
+        }
         let num = self.read_global(0);
         let name = self.get_object_name(num);
 
@@ -951,6 +954,10 @@ impl Zmachine {
     }
 
     fn get_status(&self) -> (String, String) {
+        if self.version > 3 {
+            return ("".to_string(), "".to_string());
+        }
+
         let num = self.read_global(0);
         let left = self.get_object_name(num);
 
@@ -1334,6 +1341,7 @@ impl Zmachine {
             (VAR_232, &[value]) => self.do_push(value),
             (VAR_233, &[var]) => { self.do_pull(var); }
             (VAR_236, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vs2
+            (VAR_237, &[num]) => self.do_erase_window(num),
             (VAR_249, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn
             (VAR_250, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn2
 
@@ -2159,6 +2167,12 @@ impl Zmachine {
 
         value
     }
+
+    // VAR_237
+    fn do_erase_window(&mut self, signed: u16) {
+        self.ui.print(&(signed as i16).to_string());
+    }
+
 
     // VAR_248 do_not() (same as OP1_143)
 

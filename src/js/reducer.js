@@ -197,6 +197,22 @@ function saves(state = initialSaves, action) {
   }
 }
 
+const initialInterpreter = {
+  height: 25,
+  width: 80,
+  fontHeight: 1,
+  fontWidth: 1,
+};
+
+function interpreter(state = initialInterpreter, action) {
+  switch (action.type) {
+    case 'INTERPRETER':
+      return Object.assign({}, state, action.data);
+    default:
+      return state;
+  }
+}
+
 
 export default combineReducers({
   transcript,
@@ -206,4 +222,5 @@ export default combineReducers({
   settings,
   saves,
   modal,
+  interpreter,
 });

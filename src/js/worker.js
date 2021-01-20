@@ -141,6 +141,11 @@ onmessage = (ev) => {
     zmachine.get_updates();
   }
 
+  if (ev.data.type === 'interpreter_header') {
+    console.log("set_interpreter_header: ", JSON.stringify(ev.data.msg));
+    // zmachine.set_interpreter_header(ev.data.msg);
+  }
+
   if (ev.data.type === 'enable:instructions') {
     zmachine.enable_instruction_logs(!!ev.data.msg);
   }
