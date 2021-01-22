@@ -13,7 +13,7 @@
     "check:web": "cargo check --lib --target=wasm32-unknown-unknown",
     "check:term": "cargo check --bin encrusted",
     "build:debug": "cargo build --lib --target=\"wasm32-unknown-unknown\" && mkdirp ./build/ && cp ./target/wasm32-unknown-unknown/debug/web.wasm ./build/web.wasm",
-    "build:release": "cargo build --lib --target=\"wasm32-unknown-unknown\" --release && mkdirp && cp ./target/wasm32-unknown-unknown/release/web.wasm ./build/web.wasm",
+    "build:release": "cargo build --lib --target=\"wasm32-unknown-unknown\" --release && mkdirp ./build/ && cp ./target/wasm32-unknown-unknown/release/web.wasm ./build/web.wasm",
     "bundle:electron": "webpack --config ./webpack.electron.js --progress",
     "pack:electron": "npm run bundle:electron && electron-builder --dir",
     "dist:electron": "npm run bundle:electron && electron-builder",
@@ -32,9 +32,9 @@
     ]
   },
   "dependencies": {
+    "@popperjs/core": "^2.6.0",
     "d3": "^6.3.1",
     "lz-string": "^1.4.4",
-    "popper.js": "^1.16.1",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
     "react-dropzone": "^11.2.4",

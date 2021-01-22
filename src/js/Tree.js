@@ -1,5 +1,5 @@
 import * as d3 from 'd3';
-import Popper from 'popper.js';
+import { createPopper } from '@popperjs/core';
 
 
 const TRANSITION_DURATION = 500;
@@ -116,7 +116,7 @@ class Tree {
       tooltip.classList.remove('hidden');
       tooltip.addEventListener('mouseleave', listener);
 
-      new Popper(el, tooltip, { placement: 'top-start' });
+      createPopper(el, tooltip, { placement: 'top-start' });
     });
   }
 
