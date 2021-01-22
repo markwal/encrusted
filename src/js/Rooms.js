@@ -1,4 +1,4 @@
-import d3 from 'd3';
+import * as d3 from 'd3';
 import LZString from 'lz-string';
 
 import measure from './measure';
@@ -275,22 +275,18 @@ class D3Map {
       .attr('class', 'rooms')
       .selectAll('g');
 
-    function zoom() {
-      d3.select('.map')
-        .attr(
-          'transform',
-          `translate(${d3.event.translate}) scale(${d3.event.scale})`
-        );
+    function zoomed({transform}) {
+      d3.select('.map').attr("transform", transform);
     }
 
     // listen for drag/zoom
-    this._zoom = d3.behavior.zoom().scaleExtent([0.3, 1.5]).on('zoom', () => zoom());
+    this._zoom = d3.zoom().scaleExtent([0.3, 1.5]).on('zoom', zoomed);
     this._svg.call(this._zoom).on('dblclick.zoom', null);
   }
 
-  _drag(d) {
-    d.x = Math.round((d.x + d3.event.dx) * 100) / 100;
-    d.y = Math.round((d.y + d3.event.dy) * 100) / 100;
+  _dragged(event, d) {
+    d.x = Math.round((d.x + event.dx) * 100) / 100;
+    d.y = Math.round((d.y + event.dy) * 100) / 100;
     this.update();
   }
 
@@ -299,11 +295,11 @@ class D3Map {
   }
 
   _height() {
-    return this._svg[0][0].height.baseVal.value;
+    return this._svg.property('height').baseVal.value;
   }
 
   _width() {
-    return this._svg[0][0].width.baseVal.value;
+    return this._svg.property('width').baseVal.value;
   }
 
   set(graph) {
@@ -311,22 +307,31 @@ class D3Map {
   }
 
   update() {
-    this._paths = this._paths.data([...this.graph.edges.values()]);
-    this._path_labels = this._path_labels.data([...this.graph.edges.values()]);
-    this._rooms = this._rooms.data([...this.graph.nodes.values()]);
+    this._paths = this._paths.data([...this.graph.edges.values()], d => d.id);
+    this._path_labels = this._path_labels.data([...this.graph.edges.values()], d => d.id);
+    this._rooms = this._rooms.data([...this.graph.nodes.values()], d => d.id);
+
+    this._rooms.exit().remove();
 
     // update existing paths
     this._paths
       .attr('d', d => `M${d.srcN.x},${d.srcN.y}L${d.trgN.x},${d.trgN.y}`);
 
+    // remove old paths
+    this._paths.exit().remove();
+
     // add new paths
-    this._paths.enter()
+    const newPaths = this._paths.enter()
       .append('path')
       .attr('class', d => d.c)
       .attr('id', d => d.id)
       .attr('d', d => `M${d.srcN.x},${d.srcN.y}L${d.trgN.x},${d.trgN.y}`);
 
-    this._path_labels.enter()
+    // merge
+    this._paths = this._paths.merge(newPaths);
+
+    this._path_labels.exit().remove();
+    const newLabels = this._path_labels.enter()
       .append('text')
       .attr('dy', -4)
       .append('textPath')
@@ -335,25 +340,24 @@ class D3Map {
       .attr('xlink:href', d => `#${d.id}`)
       .attr('startOffset', '50%')
       .attr('text-anchor', 'middle');
+    this._path_labels = this._path_labels.merge(newLabels);
 
-    // remove old links
-    this._paths.exit().remove();
+    // remove old rooms
+    this._rooms.exit().remove()
 
-    // update existing nodes
+    // update existing rooms
     this._rooms
       .attr('class', d => (this.graph.current.id === d.id) ? 'active room' : 'room')
       .attr('transform', d => `translate(${d.x},${d.y})`);
 
-    // add new nodes
+    // add new rooms
     // (stopPropagation makes it so ONLY this node gets dragged)
     const rooms = this._rooms.enter()
       .append('g')
       .attr('class', d => (this.graph.current.id === d.id) ? 'active room' : 'room')
       .attr('transform', d => `translate(${d.x},${d.y})`)
-      .on('mousedown', () => d3.event.stopPropagation())
-      .call(d3.behavior.drag()
-        .origin(d => ({ x: d.x, y: d.y }))
-        .on('drag', d => this._drag(d)));
+    //    .on('mousedown', (event) => event.stopPropagation())
+      .call(d3.drag().on('drag', (event, d) => this._dragged(event, d)));
 
     rooms.append('rect');
     rooms.append('text')
@@ -375,8 +379,7 @@ class D3Map {
         .attr('y', -15);
     });
 
-    // remove old nodes
-    this._rooms.exit().remove();
+    this._rooms = this._rooms.merge(rooms);
   }
 
   center() {
@@ -387,9 +390,7 @@ class D3Map {
     const x0 = -x + (this._width() / 2);
     const y0 = -y + (this._height() / 2) - 50;
 
-    this._zoom.translate([x0, y0]);
-    this._zoom.scale(1);
-    this._zoom.event(this._svg);
+    this._svg.select(".map").attr("transform", `translate(${x0}, ${y0}) scale(1)`);
   }
 }
 

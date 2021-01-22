@@ -1,4 +1,4 @@
-import d3 from 'd3';
+import * as d3 from 'd3';
 import Popper from 'popper.js';
 
 
@@ -13,14 +13,11 @@ class Tree {
     this.showDetails = false;
     this._tooltipTimer = null;
 
-    const zoom = () => {
-      this._group.attr(
-        'transform',
-        `translate(${d3.event.translate}) scale(${d3.event.scale})`
-      );
+    const zoom = (event) => {
+      this._group.attr('transform', event.transform);
     };
 
-    this._zoom = d3.behavior.zoom()
+    this._zoom = d3.zoom()
       .scaleExtent([0.3, 1.3])
       .on('zoom', zoom);
 
@@ -31,48 +28,42 @@ class Tree {
       .on('dblclick.zoom', null);
 
     this._group = this._svg.append('g');
-    this._diagonal = d3.svg.diagonal().projection(d => [d.y, d.x]);
+    this._diagonal = d3.linkHorizontal().x(function(d) { return d.y; }).y(function(d) { return d.x; });
 
     this._yourname = '';
-    this._root = {};
+    this._root = { name: "(root)", number: 0 };
     this._root.x0 = this._height() / 2;
     this._root.y0 = this._width() / 2;
-
-    this._tree = d3.layout.tree()
-      .size([this._height(), this._width()]);
-
-    this.sort();
+    this._sorted = d3.hierarchy(this._root).copy().sort(this.compareNode);
+    this._tree = d3.tree(this._sorted).size([this._height(), this._width()]);
   }
 
-  sort() {
-    this._tree.sort((a, b) => {
-      if (b.name < a.name) return 1;
-      if (b.name > a.name) return -1;
-      if (b.number < a.number) return 1;
-      if (b.number > a.number) return -1;
-      return 0;
-    });
+  compareNode(a, b) {
+    if (b.name < a.name) return 1;
+    if (b.name > a.name) return -1;
+    if (b.number < a.number) return 1;
+    if (b.number > a.number) return -1;
+    return 0;
   }
 
   _height() {
-    return this._svg[0][0].height.baseVal.value;
+    return this._svg.property('height').baseVal.value;
   }
 
   _width() {
-    return this._svg[0][0].width.baseVal.value;
+    return this._svg.property('width').baseVal.value;
   }
 
   _centerNode(node) {
-    const scale = this._zoom.scale();
-    const x = -node.y0 * scale + this._width() / 2;
-    const y = -node.x0 * scale + this._height() / 2;
+    if (node && node.x0 && node.y0) {
+      const scale = d3.zoomTransform(this._group).k;
+      const x = -node.y0 * scale + this._width() / 2;
+      const y = -node.x0 * scale + this._height() / 2;
 
-    this._group.transition()
-      .duration(TRANSITION_DURATION)
-      .attr('transform', `translate(${x},${y}) scale(${scale})`);
-
-    this._zoom.scale(scale);
-    this._zoom.translate([x, y]);
+      this._group.transition()
+        .duration(TRANSITION_DURATION)
+        .attr('transform', `translate(${x},${y}) scale(${scale})`);
+    }
   }
 
   close(node) {
@@ -91,16 +82,20 @@ class Tree {
       : this.open(node);
   }
 
-  _click(node) {
+  _click(event, node) {
     this.toggle(node);
     this._renderNode(node);
   }
 
   _showDetails(node) {
-    const el = document.querySelector(`#n${node.number}`);
+    if (!node || !node.data) {
+      return;
+    }
+
+    const el = document.querySelector(`#n${node.data.number}`);
     const tooltip = document.querySelector('#tooltip');
 
-    this.getDetails(node.number).then((details) => {
+    this.getDetails(node.data.number).then((details) => {
       const listener = () => {
         tooltip.innerHTML = '';
         tooltip.classList.add('hidden');
@@ -108,7 +103,7 @@ class Tree {
       };
 
       tooltip.innerHTML = `
-        <h4>Object #${node.number}</h4>
+        <h4>Object #${node.data.number}</h4>
         <span class="close">
           <i
             class="icon ion-ios-close-empty"
@@ -125,12 +120,12 @@ class Tree {
     });
   }
 
-  _context(node) {
-    d3.event.preventDefault();
+  _context(event, node) {
+    event.preventDefault();
     this._showDetails(node);
   }
 
-  _mouseover(node) {
+  _mouseover(event, node) {
     if (this.showDetails) this._showDetails(node);
   }
 
@@ -154,7 +149,7 @@ class Tree {
       return h;
     }, 0);
 
-    // update the current biggest hieght in the tree
+    // update the current biggest height in the tree
     max = d3.max([max, height]);
 
     return node.children.reduce(this._maxHeight.bind(this), max);
@@ -165,19 +160,21 @@ class Tree {
     const height = this._maxHeight(1, this._root) * 40;
     this._tree = this._tree.size([height, this._width()]);
 
-    const nodes = this._tree.nodes(this._root);
-    const links = this._tree.links(nodes);
+    const nodes = this._tree(this._sorted).descendants();
+    const links = this._tree(this._sorted).descendants().slice(1);
 
     // 200 width per level
-    nodes.forEach((d) => { d.y = (d.depth * 200); });
+    nodes.forEach((d) => {
+      d.y = (d.depth * 200);
+    });
 
     // update existing nodes
-    const node = this._group.selectAll('g.node').data(nodes, d => d.number);
+    const node = this._group.selectAll('g.node').data(nodes, d => d.data.number);
 
     const newNode = node.enter().append('g')
-      .attr('class', d => (d.name === this._yourname) ? 'you node' : 'node')
-      .attr('transform', () => `translate(${src.y0},${src.x0})`)
-      .attr('id', d => `n${d.number}`)
+      .attr('class', d => (d.data.name === this._yourname) ? 'you node' : 'node')
+      .attr('transform', d => `translate(${src.y0},${src.x0})`)
+      .attr('id', d => `n${d.data.number}`)
       .on('click', this._click.bind(this))
       .on('contextmenu', this._context.bind(this))
       .on('mouseover', this._mouseover.bind(this))
@@ -187,7 +184,7 @@ class Tree {
       .attr('class', d => (d._children) ? 'nodeCircle collapsed' : 'nodeCircle');
 
     newNode.append('text')
-      .text(d => (d.name === 'cretin') ? 'cretin (you)' : d.name)
+      .text(d => (d.data.name === 'cretin') ? 'cretin (you)' : d.data.name)
       .attr('class', 'text-bg')
       .attr('dy', '.25em')
       .attr('x', d => (d.children || d._children) ? -10 : 10)
@@ -195,26 +192,30 @@ class Tree {
       .style('fill-opacity', 0);
 
     newNode.append('text')
-      .text(d => (d.name === 'cretin') ? 'cretin (you)' : d.name)
+      .text(d => (d.data.name === 'cretin') ? 'cretin (you)' : d.data.name)
       .attr('class', 'object-name')
       .attr('dy', '.25em')
       .attr('x', d => (d.children || d._children) ? -10 : 10)
       .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start')
       .style('fill-opacity', 0);
 
-    node.selectAll('text')
-      .text(d => (d.name === 'cretin') ? 'cretin (you)' : d.name)
+    const nodeMerge = node.merge(newNode);
+
+    nodeMerge.selectAll('text')
+      .text(d => (d.data.name === 'cretin') ? 'cretin (you)' : d.data.name)
       .attr('x', d => (d.children || d._children) ? -10 : 10)
       .attr('text-anchor', d => (d.children || d._children) ? 'end' : 'start');
 
-    node.select('circle.nodeCircle')
+    nodeMerge.select('circle.nodeCircle')
       .attr('class', d => (d._children) ? 'nodeCircle collapsed' : 'nodeCircle')
       .attr('r', 4.5);
 
     // transition nodes to their new position
-    const nodeUpdate = node.transition()
+    const nodeUpdate = nodeMerge.transition()
       .duration(TRANSITION_DURATION)
-      .attr('transform', d => `translate(${d.y},${d.x})`);
+      .attr('transform', d => {
+        return `translate(${d.y},${d.x})`;
+      });
 
     // fade text in
     nodeUpdate.selectAll('text')
@@ -240,22 +241,47 @@ class Tree {
       .duration(TRANSITION_DURATION)
       .attr('r', 0);
 
-    // epdate existing links
+    // update existing links
     const link = this._group.selectAll('path.link')
-      .data(links, d => d.target.number);
+      .data(links, d => { return d.data.number; });
 
     // Enter any new links at the parent's previous position.
-    link.enter().insert('path', 'g')
+    const newLinks = link.enter().insert('path', 'g')
       .attr('class', 'link')
-      .attr('d', () => this._diagonal({
-        source: { x: src.x0, y: src.y0 },
-        target: { x: src.x0, y: src.y0 },
-      }));
+      .attr('d', d => {
+        if (d.parent && d.parent.x0) {
+          return this._diagonal({
+            source: { x: d.parent.x0, y: d.parent.y0 },
+            target: { x: d.parent.x0, y: d.parent.y0 },
+          });
+        }
+        else {
+          return this._diagonal({
+            source: { x: src.x0, y: src.y0 },
+            target: { x: src.x0, y: src.y0 },
+          });
+        }
+      });
+
+    const linkMerge = link.merge(newLinks);
 
     // Transition links to their new position.
-    link.transition()
+    linkMerge.transition()
       .duration(TRANSITION_DURATION)
-      .attr('d', this._diagonal);
+      .attr('d', d => {
+        if (d.parent) {
+          return this._diagonal({
+            source: { x: d.parent.x, y: d.parent.y },
+            target: { x: d.x, y: d.y }
+          });
+        }
+        else {
+          return this._diagonal({
+            source: { x: d.x, y: d.y },
+            target: { x: d.x, y: d.y }
+          });
+        }
+      });
 
     // Transition exiting nodes to the parent's new position.
     link.exit().transition()
@@ -274,6 +300,10 @@ class Tree {
   }
 
   find(value, prop = 'name') {
+    return this._sorted.find(d => d.data[prop] == value);
+  }
+
+  findOld(value, prop = 'name') {
     let found;
 
     function find(node) {
@@ -322,6 +352,7 @@ class Tree {
     this._root = data;
     this._root.x0 = this._height() / 2;
     this._root.y0 = this._width() / 2;
+    this._sorted = d3.hierarchy(this._root).copy().sort(this.compareNode);
 
     const you = this.you();
     this.render();

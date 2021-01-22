@@ -76,7 +76,7 @@ const middleware = store => next => (action) => {
   function bindWorker() {
     // Some actions that are a bit expensive & can be done when idle.
     // * serialize/compress can interrupt rendering, so put it off
-    const [saveMap, cancelSave] = debounce(() => storage.set('map', graph.serialize()));
+    const [saveMap, cancelSave] = debounce(() => {console.log('save map'); storage.set('map', graph.serialize())});
 
     worker.on('print', (text) => {
       dispatch({ type: 'TS::TEXT', text });

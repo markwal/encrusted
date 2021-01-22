@@ -39,7 +39,6 @@ thread_local!(static ZVM: RefCell<Option<Zmachine>> = RefCell::new(None););
 
 #[no_mangle]
 pub fn hook() {
-    let _ = _consolelog("Hello World!");
     panic_hook::set_once();
 }
 
