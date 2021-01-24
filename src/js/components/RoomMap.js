@@ -18,7 +18,7 @@ class RoomMap extends Component {
       this.map.update();
       setTimeout(() => {
         this.map.center();
-      });
+      }, 100);
     });
   }
 
