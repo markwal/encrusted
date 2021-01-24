@@ -47,6 +47,11 @@ class LocalStore {
     return has(localStorage, uniqueKey);
   }
 
+  remove(key) {
+    const uniqueKey = `${this._id}::${key}`;
+    return localStorage.removeItem(uniqueKey);
+  }
+
   clear() {
     const prefix = `${this._id}::`;
 
@@ -76,11 +81,14 @@ const middleware = store => next => (action) => {
   function bindWorker() {
     // Some actions that are a bit expensive & can be done when idle.
     // * serialize/compress can interrupt rendering, so put it off
-    const [saveMap, cancelSave] = debounce(() => {console.log('save map'); storage.set('map', graph.serialize())});
+    const [saveMap, cancelSave] = debounce(() => {storage.set('map', graph.serialize())});
 
     worker.on('print', (text) => {
       dispatch({ type: 'TS::TEXT', text });
       cancelSave();
+      const countScript = store.getState().transcript.moves.length;
+      storage.set(`script::${countScript}`, "<span>&nbsp;" + last_input + "</span><br>" + text);
+      storage.set('countScript', countScript);
 
       if (!!~text.indexOf('You have died')) {
         last_input = 'DIED';
@@ -116,7 +124,9 @@ const middleware = store => next => (action) => {
     worker.on('savestate', (save) => {
       dispatch({ type: 'SAVES::STATE', save });
       // edge case: don't save state at very start of a game
-      if (!!last_input) storage.set('savestate', save);
+      if (!!last_input) {
+        storage.set('savestate', save);
+      }
     });
 
     worker.on('save', (save) => {
@@ -166,12 +176,31 @@ const middleware = store => next => (action) => {
         ? decodeURI(query).replace(/ /g, '+')
         : storage.get('savestate');
 
+      let text;
+
       if (state) {
         const [_id, data] = JSON.parse(state);
         worker.send('load_savestate', data);
+
+        if (!query) {
+          // accumulate dead (no undo) persisted transcript
+          const countScript = storage.get('countScript');
+          if (countScript) {
+            text = "";
+            for (let i = 0; i <= countScript; i++) {
+              let s = storage.get(`script::${i}`);
+              if (s) {
+                text = text + s;
+                storage.remove(`script::${i}`);
+              }
+            }
+            storage.set('script::0', text);
+          }
+        }
       }
 
       worker.send('start');
+      dispatch({ type: 'TS::TEXT', text });
     });
   }
 

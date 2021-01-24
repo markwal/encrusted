@@ -61,6 +61,7 @@ class Launcher extends Component {
         });
       } else {
         const msg = (isValid && !isRightVersion)
+        // intentional typo?
           ? 'Encursted only supports version 3 zcode game files right now :('
           : 'Something went wrong validating this file. Are you sure its a game?';
 

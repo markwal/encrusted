@@ -29,6 +29,13 @@ class Settings extends Component {
     if (window.confirm(msg)) {
       localStorage.removeItem(`${title}::saves`);
       localStorage.removeItem(`${title}::savestate`);
+
+      const script = title + "::script";
+      Object.keys(localStorage).forEach((key) => {
+        if (key.slice(0, script.length) === script) {
+          localStorage.removeItem(key);
+        }
+      });
     }
   }
 

@@ -125,9 +125,6 @@ onmessage = (ev) => {
   if (ev.data.type === 'load_savestate') {
     zmachine.load_savestate(ev.data.msg);
     step();
-    zmachine.feed('look'); // get description text and then undo
-    step();
-    zmachine.undo();
   }
 
   if (ev.data.type === 'undo') {
