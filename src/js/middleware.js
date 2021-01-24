@@ -200,7 +200,8 @@ const middleware = store => next => (action) => {
       }
 
       worker.send('start');
-      dispatch({ type: 'TS::TEXT', text });
+      if (text)
+        dispatch({ type: 'TS::TEXT', text });
     });
   }
 
