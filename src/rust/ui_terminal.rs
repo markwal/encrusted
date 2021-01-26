@@ -6,7 +6,7 @@ use std::io::Write;
 
 use regex::Regex;
 use atty::Stream;
-use term_size;
+use terminal_size::{Width, Height, terminal_size};
 
 use traits::UI;
 
@@ -48,10 +48,11 @@ impl TerminalUI {
 
 impl UI for TerminalUI {
     fn new() -> Box<TerminalUI> {
-        if let Some((w, _)) = term_size::dimensions() {
+        let size = terminal_size();
+        if let Some((Width(w), Height(_))) = size {
             Box::new(TerminalUI {
                 isatty: atty::is(Stream::Stdout),
-                width: w,
+                width: usize::from(w),
                 x_position: 0,
             })
         } else {
@@ -160,7 +161,7 @@ impl UI for TerminalUI {
     }
 
     // unimplemented, only used in web ui
-    fn erase_window(&mut self, window: i16) {}
+    fn erase_window(&mut self, _window: i16) {}
     fn flush(&mut self) {}
     fn message(&self, _mtype: &str, _msg: &str) {}
 }

@@ -4,7 +4,7 @@ extern crate clap;
 extern crate rand;
 extern crate regex;
 extern crate serde_json;
-extern crate term_size;
+extern crate terminal_size;
 
 #[macro_use]
 extern crate lazy_static;
