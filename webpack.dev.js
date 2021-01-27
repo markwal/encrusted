@@ -42,6 +42,7 @@ module.exports = {
         { from: './src/dev.html', to: './index.html' },
         { from: './src/*.css', to: './[name].[ext]' },
         { from: './src/img/**.*', to: './img/[name].[ext]' },
+        { from: './src/assets/**.*', to: './assets/[name].[ext]' },
       ],
     }),
   ],

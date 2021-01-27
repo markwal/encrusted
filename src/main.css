@@ -666,6 +666,18 @@ h1 {
     letter-spacing: 1px;
 }
 
+.header .test-font {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    visibility: hidden;
+    position: absolute;
+    height: auto;
+    width: auto;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+
 .header .left {
     flex-grow: 1;
     position: relative;

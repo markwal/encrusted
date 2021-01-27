@@ -26,13 +26,9 @@ class ZMachine extends Component {
   }
 
   componentDidMount() {
-    // FUTURE compute the fontSize from the monospace font
-    const fontSize = parseInt(window.getComputedStyle(this.divElement).fontSize, 10);
     const vmScreenDimensions = {
       height: this.divElement.clientHeight,
       width: this.divElement.clientWidth,
-      fontHeight: fontSize,
-      fontWidth: Math.ceil(fontSize * 0.7),
     };
     this.saveScreenDimensions(vmScreenDimensions);
   }

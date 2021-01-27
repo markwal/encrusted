@@ -1,34 +1,54 @@
-import React from 'react';
+import React, { Component } from 'react';
 import { connect } from 'react-redux';
 
 
-const Header = (props) => {
-  let title = window.location.pathname.split('/').pop();
-  title = title.charAt(0).toUpperCase() + title.slice(1);
+class Header extends Component {
+  constructor(props) {
+    super(props);
 
-  document.title = (props.left) ? `${title} - ${props.left}` : title;
+    this.title = window.location.pathname.split('/').pop();
+    this.title = this.title.charAt(0).toUpperCase() + this.title.slice(1);
+    this.saveScreenDimensions = this.props.saveScreenDimensions.bind(this);
+  }
 
-  return (
-    <div className="header">
-      <div>
-        <div className="left">
-          {props.canUndo &&
-            <i className="undo icon ion-chevron-left" onClick={props.undo}></i>
-          }
+  componentDidMount() {
+    // compute the size of the monospace emspace
+    const vmScreenDimensions = {
+      font_height: this.divElement.clientHeight,
+      font_width: Math.ceil(this.divElement.clientWidth / 10),
+    };
+    console.log('the emspace width ', vmScreenDimensions.font_width, ' and height ', vmScreenDimensions.font_height);
+    this.saveScreenDimensions(vmScreenDimensions);
+  }
 
-          {props.left || '\u00A0'}
-        </div>
+  render() {
+    document.title = (this.props.left) ? `${this.title} - ${this.props.left}` : this.title;
 
-        <div className="right">
-          {props.canRedo &&
-            <i className="redo icon ion-chevron-right" onClick={props.redo}></i>
-          }
-          {props.right || '\u00A0'}
+    return (
+      <div className="header">
+        <div>
+          <div className="left">
+            {this.props.canUndo &&
+              <i className="undo icon ion-chevron-left" onClick={this.props.undo}></i>
+            }
+
+            {this.props.left || '\u00A0'}
+            <div className="test-font" ref={ divElement => { this.divElement = divElement } }>
+              {'I'.repeat(10)}
+            </div>
+          </div>
+
+          <div className="right">
+            {this.props.canRedo &&
+              <i className="redo icon ion-chevron-right" onClick={this.props.redo}></i>
+            }
+            {this.props.right || '\u00A0'}
+          </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  }
+}
 
 
 export default connect(
@@ -41,5 +61,6 @@ export default connect(
   dispatch => ({
     undo: () => dispatch({ type: 'TS::UNDO' }),
     redo: () => dispatch({ type: 'TS::REDO' }),
+    saveScreenDimensions: data => dispatch({ type: 'INTERPRETER', data }),
   }),
 )(Header);

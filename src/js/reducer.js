@@ -200,8 +200,8 @@ function saves(state = initialSaves, action) {
 const initialInterpreter = {
   height: 25,
   width: 80,
-  fontHeight: 1,
-  fontWidth: 1,
+  font_height: 1,
+  font_width: 1,
 };
 
 function interpreter(state = initialInterpreter, action) {

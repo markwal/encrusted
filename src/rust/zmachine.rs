@@ -42,6 +42,20 @@ pub struct Object {
     children: Vec<Box<Object>>,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct InterpreterHeader {
+    pub height: u16,
+    pub width: u16,
+    pub font_height: u16,
+    pub font_width: u16
+}
+
+fn deserialize_into_interpreter_header(v: serde_json::Value, header: &mut InterpreterHeader) -> Result<(), serde_json::Error>
+{
+    *header = serde_json::from_value(v)?;
+    Ok(())
+}
+
 impl Object {
     fn new(number: u16, zvm: &Zmachine) -> Box<Object> {
         let mut name = if number > 0 {
@@ -152,12 +166,12 @@ pub struct Zmachine {
     undos: Vec<(String, Vec<u8>)>,
     redos: Vec<(String, Vec<u8>)>,
     rng: rand::XorShiftRng,
+    interpreter_header: InterpreterHeader,
 }
 
 impl Zmachine {
     pub fn new(data: Vec<u8>, ui: Box<dyn UI>, options: Options) -> Zmachine {
         let memory = Buffer::new(data);
-
         let version = memory.read_byte(0x00);
         let initial_pc = memory.read_word(0x06) as usize;
         let prop_defaults = memory.read_word(0x0A) as usize;
@@ -167,6 +181,13 @@ impl Zmachine {
             Zmachine::load_alphabet(&memory)
         } else {
             Zmachine::default_alphabet()
+        };
+
+        let interpreter_header = InterpreterHeader {
+            height: 25,
+            width: 80,
+            font_height: 1,
+            font_width: 1
         };
 
         let mut zvm = Zmachine {
@@ -198,6 +219,7 @@ impl Zmachine {
             rng: rand::SeedableRng::from_seed(options.rand_seed.clone()),
             memory,
             options,
+            interpreter_header
         };
 
         // read into dictionary & word separators
@@ -1610,6 +1632,14 @@ impl Zmachine {
 
         let msg_body = serde_json::to_string(&(status, b64)).unwrap();
         self.ui.message(msg_type, &msg_body);
+    }
+
+    // Web UI only -- for now, TODO: console also
+    #[allow(dead_code)]
+    pub fn set_interpreter_header(&mut self, v: serde_json::Value) {
+        deserialize_into_interpreter_header(v, &mut self.interpreter_header).unwrap();
+        // self.memory.write_byte(addr, value);
+        self.ui.debug(&format!("terp header width: {} height: {}\n", self.interpreter_header.width, self.interpreter_header.height));
     }
 }
 

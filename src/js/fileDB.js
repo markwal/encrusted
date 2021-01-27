@@ -41,7 +41,7 @@ function storeFile(db, file, name) {
 
 function tryFetchFile(name) {
   // try to get file from ./assets
-  let url = `../assets/${name}`;
+  let url = `/assets/${name}`;
   // add file extension if not present
   if (!~name.indexOf('.')) url += '.z3';
 
