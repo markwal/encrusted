@@ -49,6 +49,13 @@ function transcript(state = initialTranscript, action) {
         header: { left, right },
       });
 
+    case 'TS::HEADER::SIZE':
+      const lines = JSON.parse(action.data);
+
+      return Object.assign({}, state, {
+        header: { lines },
+      });
+
     case 'TS::STOP':
     case 'TS::RESTART':
       return Object.assign({}, initialTranscript);

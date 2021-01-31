@@ -138,7 +138,7 @@ impl UI for WebUI {
     }
 
     fn erase_window(&mut self, window: i16) {
-        if window == 0 {
+        if window == 0 || window == -1 {
             self.buffer.push(Token::Erase);
             self.flush();
         }

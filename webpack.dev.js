@@ -43,6 +43,7 @@ module.exports = {
         { from: './src/*.css', to: './[name].[ext]' },
         { from: './src/img/**.*', to: './img/[name].[ext]' },
         { from: './src/assets/**.*', to: './assets/[name].[ext]' },
+        { from: './target/wasm32-unknown-unknown/debug/web.wasm', to: './[name].[ext]' },
       ],
     }),
   ],

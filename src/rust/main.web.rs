@@ -1,6 +1,7 @@
 extern crate base64;
 extern crate rand;
 extern crate serde_json;
+extern crate bitflags;
 
 #[macro_use]
 extern crate serde_derive;
@@ -179,9 +180,7 @@ pub fn flush_log() {
 }
 
 #[no_mangle]
-pub fn set_interpreter_header(terp_header_json: *mut c_char) {
-//    let header: InterpreterHeader = serde_json::from_str(&get_string(terp_header_json)).expect("Incorrect intepreter header");
-//    _consolelog(&format!("set_interpreter_header {}, {}, {}, {}", header.width, header.height, header.font_width, header.font_height)).expect("set_interpreter_header");
-    let v: serde_json::Value = serde_json::from_str(&get_string(terp_header_json)).expect("Incorrect intepreter header");
-    with(|zvm| zvm.set_interpreter_header(v));
+pub fn set_terp_caps(terp_caps_json: *mut c_char) {
+    let v: serde_json::Value = serde_json::from_str(&get_string(terp_caps_json)).expect("Incorrect intepreter capabilities");
+    with(|zvm| zvm.set_terp_caps(v));
 }

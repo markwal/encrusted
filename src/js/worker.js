@@ -25,7 +25,7 @@ const zmachine = new Wrapper({
   enable_instruction_logs: [null, ['bool']],
   get_object_details: [rust.string, ['number']],
   flush_log: [],
-  set_interpreter_header: [null, ['string']],
+  set_terp_caps: [null, ['string']],
 });
 
 
@@ -143,8 +143,8 @@ onmessage = (ev) => {
   }
 
   if (ev.data.type === 'interpreter_header') {
-    console.log("set_interpreter_header: ", JSON.stringify(ev.data.msg));
-    zmachine.set_interpreter_header(JSON.stringify(ev.data.msg));
+    console.log("set_terp_caps: ", JSON.stringify(ev.data.msg));
+    zmachine.set_terp_caps(JSON.stringify(ev.data.msg));
   }
 
   if (ev.data.type === 'enable:instructions') {

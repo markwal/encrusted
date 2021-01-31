@@ -1,4 +1,3 @@
-
 use std::boxed::Box;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -15,6 +14,8 @@ use enum_primitive::FromPrimitive;
 use rand;
 use rand::{Rng, SeedableRng};
 use serde_json;
+use serde_json::Value;
+use bitflags::bitflags;
 
 use buffer::Buffer;
 use frame::Frame;
@@ -43,16 +44,51 @@ pub struct Object {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct InterpreterHeader {
+pub struct TerpCaps {
     pub height: u16,
     pub width: u16,
     pub font_height: u16,
-    pub font_width: u16
+    pub font_width: u16,
+
+    // V3 only
+    pub split_screen: bool,
+    pub proportional: bool,
+    pub tandy: bool,
+
+    /* All of our UIs can handle these
+    // V4 and later
+    pub bold: bool,
+    pub emphasis: bool,
+    pub fixed: bool,
+    pub timed_input: bool,
+    */
+
+    // V5 and later
+    pub color: bool,
+
+    // V6 only
+    pub pictures: bool,
+    pub sound: bool,
 }
 
-fn deserialize_into_interpreter_header(v: serde_json::Value, header: &mut InterpreterHeader) -> Result<(), serde_json::Error>
+fn merge_json(a: &mut Value, b: Value) {
+    match (a, b) {
+        (a @ &mut Value::Object(_), Value::Object(b)) => {
+            let a = a.as_object_mut().unwrap();
+            for (k, v) in b {
+                merge_json(a.entry(k).or_insert(Value::Null), v);
+            }
+        }
+        (a, b) => *a = b,
+    }
+}
+
+fn deserialize_into_terp_caps(v: Value, header: &mut TerpCaps) -> Result<(), serde_json::Error>
 {
-    *header = serde_json::from_value(v)?;
+    let mut merged = serde_json::to_value(&header).unwrap();
+    merge_json(&mut merged, v);
+
+    *header = serde_json::from_value(merged)?;
     Ok(())
 }
 
@@ -137,6 +173,76 @@ impl ObjectProperty {
     }
 }
 
+enum_from_primitive! {
+    #[allow(non_camel_case_types)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub enum HeaderOffset {
+        VERSION = 0,
+        CONFIG = 1,
+        RELEASE = 2,
+        RESIDENT_SIZE = 4,
+        START_PC = 6,
+        DICTIONARY = 8,
+        OBJECTS = 10,
+        GLOBALS = 12,
+        DYNAMIC_SIZE = 14,
+        FLAGS = 16,
+        SERIAL = 18,
+        ABBREVIATIONS = 24,
+        FILE_SIZE = 26,
+        CHECKSUM = 28,
+        INTERPRETER_NUMBER = 30,
+        INTERPRETER_VERSION = 31,
+        SCREEN_ROWS = 32,
+        SCREEN_COLS = 33,
+        SCREEN_WIDTH = 34,
+        SCREEN_HEIGHT = 36,
+        FONT_HEIGHT = 38, /* this is the font width in V5 */
+        FONT_WIDTH = 39, /* this is the font height in V5 */
+        FUNCTIONS_OFFSET = 40,
+        STRINGS_OFFSET = 42,
+        DEFAULT_BACKGROUND = 44,
+        DEFAULT_FOREGROUND = 45,
+        TERMINATING_KEYS = 46,
+        LINE_WIDTH = 48,
+        STANDARD_HIGH = 50,
+        STANDARD_LOW = 51,
+        ALPHABET = 52,
+        EXTENSION_TABLE = 54,
+        USER_NAME = 56,
+    }
+}
+
+bitflags! {
+    #[derive(Default)]
+    struct TerpConfig : u8 {
+        /* V3 from the game to the interpreter */
+        const BYTE_SWAPPED = 0x01; /* Story file is byte swapped         - V3  */
+        const TIME         = 0x02; /* Status line displays time          - V3  */
+        const TWODISKS     = 0x04; /* Story file occupied two disks      - V3  */
+        const TANDY        = 0x08; /* Tandy licensed game                - V3  */
+
+        /* V3 from the interpreter to the game */
+        const NOSTATUSLINE = 0x10; /* Interpr can't support status lines - V3  */
+        const SPLITSCREEN  = 0x20; /* Interpr supports split screen mode - V3  */
+        const PROPORTIONAL = 0x40; /* Interpr uses proportional font     - V3  */
+
+        /* V4+ from the interpreter to the game */
+        const COLOUR       = 0x01; /* Interpr supports colour            - V5+ */
+        const PICTURES     = 0x02; /* Interpr supports pictures	       - V6  */
+        const BOLDFACE     = 0x04; /* Interpr supports boldface style    - V4+ */
+        const EMPHASIS     = 0x08; /* Interpr supports emphasis style    - V4+ */
+        const FIXED        = 0x10; /* Interpr supports fixed width style - V4+ */
+        const SOUND        = 0x20; /* Interpr supports sound             - V6  */
+        const TIMEDINPUT   = 0x80; /* Interpr supports timed input       - V4+ */ }
+}
+
+impl fmt::Display for TerpConfig {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
 pub struct Zmachine {
     pub ui: Box<dyn UI>,
     pub options: Options,
@@ -166,7 +272,7 @@ pub struct Zmachine {
     undos: Vec<(String, Vec<u8>)>,
     redos: Vec<(String, Vec<u8>)>,
     rng: rand::XorShiftRng,
-    interpreter_header: InterpreterHeader,
+    terp_caps: TerpCaps,
 }
 
 impl Zmachine {
@@ -183,11 +289,18 @@ impl Zmachine {
             Zmachine::default_alphabet()
         };
 
-        let interpreter_header = InterpreterHeader {
+        let terp_caps = TerpCaps {
             height: 25,
             width: 80,
             font_height: 1,
-            font_width: 1
+            font_width: 1,
+
+            split_screen: false,
+            proportional: false,
+            tandy: false,
+            color: false,
+            pictures: false,
+            sound: false,
         };
 
         let mut zvm = Zmachine {
@@ -219,7 +332,7 @@ impl Zmachine {
             rng: rand::SeedableRng::from_seed(options.rand_seed.clone()),
             memory,
             options,
-            interpreter_header
+            terp_caps
         };
 
         // read into dictionary & word separators
@@ -497,6 +610,39 @@ impl Zmachine {
         }
 
         length
+    }
+
+    fn restart_header(&mut self) {
+        // config
+        let mut config: TerpConfig = Default::default();
+        if self.version == 3 {
+            if self.terp_caps.split_screen {
+                config = config | TerpConfig::SPLITSCREEN;
+            }
+            if self.terp_caps.proportional {
+                config = config | TerpConfig::PROPORTIONAL;
+            }
+            if self.terp_caps.tandy {
+                config = config | TerpConfig::TANDY;
+            }
+        }
+        self.memory.write_byte(HeaderOffset::CONFIG as usize,
+            self.memory.read_byte(HeaderOffset::CONFIG as usize) | config.bits);
+
+//        FUTURE self.memory.write_byte(H_FLAGS, h_flags);
+//
+        let screen_cols = self.terp_caps.width / self.terp_caps.font_width;
+        let screen_cols = if screen_cols > 120 { 120 } else { screen_cols };
+        let screen_rows = self.terp_caps.height / self.terp_caps.font_height;
+        let screen_rows = if screen_rows > 255 { 255 } else { screen_rows };
+        self.ui.debug(&format!("terp header cols: {} rows: {}\n", screen_cols, screen_rows));
+        if self.version >= 4 {
+            self.memory.write_byte(HeaderOffset::INTERPRETER_NUMBER as usize, 4 /* INTERP_AMIGA */);
+            self.memory.write_byte(HeaderOffset::INTERPRETER_VERSION as usize, 'F' as u8);
+
+            self.memory.write_byte(HeaderOffset::SCREEN_COLS as usize, screen_cols as u8);
+            self.memory.write_byte(HeaderOffset::SCREEN_ROWS as usize, screen_rows as u8);
+        }
     }
 
     fn populate_dictionary(&mut self) {
@@ -1362,6 +1508,7 @@ impl Zmachine {
             (VAR_230, &[num]) => self.do_print_num(num),
             (VAR_232, &[value]) => self.do_push(value),
             (VAR_233, &[var]) => { self.do_pull(var); }
+            (VAR_234, &[num]) => self.do_split_window(num),
             (VAR_236, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vs2
             (VAR_237, &[num]) => self.do_erase_window(num),
             (VAR_249, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn
@@ -1636,10 +1783,10 @@ impl Zmachine {
 
     // Web UI only -- for now, TODO: console also
     #[allow(dead_code)]
-    pub fn set_interpreter_header(&mut self, v: serde_json::Value) {
-        deserialize_into_interpreter_header(v, &mut self.interpreter_header).unwrap();
-        // self.memory.write_byte(addr, value);
-        self.ui.debug(&format!("terp header width: {} height: {}\n", self.interpreter_header.width, self.interpreter_header.height));
+    pub fn set_terp_caps(&mut self, v: serde_json::Value) {
+        deserialize_into_terp_caps(v, &mut self.terp_caps).unwrap();
+        self.ui.debug(&format!("terp header width: {} height: {}\n", self.terp_caps.width, self.terp_caps.height));
+        self.restart_header();
     }
 }
 
@@ -2009,6 +2156,7 @@ impl Zmachine {
         self.frames.clear();
         self.frames.push(Frame::empty());
         self.memory.write(0, self.original_dynamic.as_slice());
+        self.restart_header();
     }
 
     // OP0_184
@@ -2198,9 +2346,14 @@ impl Zmachine {
         value
     }
 
+    // VAR_234 - set the height of the top window
+    fn do_split_window(&mut self, height: u16) {
+        self.ui.debug(&format!("split_window: height: {}", height));
+    }
+
     // VAR_237
     fn do_erase_window(&mut self, signed: u16) {
-        self.ui.print(&(signed as i16).to_string());
+        self.ui.erase_window(signed as i16);
     }
 
 
