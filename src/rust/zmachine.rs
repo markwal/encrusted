@@ -1509,14 +1509,23 @@ impl Zmachine {
             (VAR_232, &[value]) => self.do_push(value),
             (VAR_233, &[var]) => { self.do_pull(var); }
             (VAR_234, &[num]) => self.do_split_window(num),
+            (VAR_235, &[num]) => self.do_set_window(num),
             (VAR_236, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vs2
             (VAR_237, &[num]) => self.do_erase_window(num),
+            (VAR_239, &[y, x, num]) => self.do_set_cursor(num, x, y),
+            (VAR_239, &[y, x]) => self.do_set_cursor(1, x, y),
+            (VAR_240, &[num]) => self.do_get_cursor(num),
+            (VAR_240, _) => self.do_get_cursor(1),
+            (VAR_241, &[num]) => self.do_set_text_style(num),
+            (VAR_243, &[num]) => self.do_output_stream(num, 0, 0),
+            (VAR_243, &[num, addr]) => self.do_output_stream(num, addr, 0),
+            (VAR_243, &[num, addr, width]) => self.do_output_stream(num, addr, width),
             (VAR_249, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn
             (VAR_250, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn2
 
             // special cases to no-op: (input/output streams & sound effects)
             // these might be present in some v3 games but aren't implemented yet
-            (VAR_243, _) | (VAR_244, _) | (VAR_245, _) => (),
+            (VAR_244, _) | (VAR_245, _) => (),
 
             _ => panic!(
                 "\n\nOpcode not yet implemented: {} ({:?}) @ {:#04x}\n\n",
@@ -2351,8 +2360,34 @@ impl Zmachine {
         self.ui.debug(&format!("split_window: height: {}", height));
     }
 
+    // VAR_235 - set current window
+    fn do_set_window(&mut self, window: u16) {
+        self.ui.debug(&format!("set_window: window: {}", window));
+    }
+
+    // VAR_239 - set cursor position for indicated window
+    fn do_set_cursor(&mut self, window: u16, x: u16, y: u16) {
+        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}", window, x, y));
+    }
+
+    // VAR_240 - get current cursor position
+    fn do_get_cursor(&mut self, window: u16) {
+        self.ui.debug(&format!("get_cursor: window: {}", window));
+    }
+
+    // VAR_241 - set text style
+    fn do_set_text_style(&mut self, style: u16) {
+        self.ui.debug(&format!("set_text_style: style: {}", style));
+    }
+
+    // VAR_243 - set output stream
+    fn do_output_stream(&mut self, stream: u16, addr: u16, width: u16) {
+        self.ui.debug(&format!("output_stream: stream: {} addr: {} width: {}", stream, addr, width));
+    }
+
     // VAR_237
     fn do_erase_window(&mut self, signed: u16) {
+        self.ui.debug(&format!("erase_window: window: {}", &signed));
         self.ui.erase_window(signed as i16);
     }
 
