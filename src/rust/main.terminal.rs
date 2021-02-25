@@ -4,7 +4,10 @@ extern crate clap;
 extern crate rand;
 extern crate regex;
 extern crate serde_json;
+extern crate bitflags;
 extern crate terminal_size;
+extern crate crossterm;
+extern crate unicode_segmentation;
 
 #[macro_use]
 extern crate lazy_static;
@@ -30,6 +33,7 @@ mod quetzal;
 mod traits;
 mod ui_terminal;
 mod zmachine;
+mod termbuffer;
 
 use options::Options;
 use traits::UI;
@@ -68,7 +72,7 @@ fn main() {
     if version == 0 || version > 8 {
         println!(
             "\n\
-             \"{}\" has an nsupported game version: {}\n\
+             \"{}\" has an unsupported game version: {}\n\
              Is this a valid game file?\n",
             path.to_string_lossy(),
             version
