@@ -7,3 +7,5 @@
 /dist
 tags
 .cargo/
+.vs/
+.vscode/

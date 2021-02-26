@@ -1151,7 +1151,7 @@ impl Zmachine {
         (left, right)
     }
 
-    pub fn update_status_bar(&self) {
+    pub fn update_status_bar(&mut self) {
         // status bar only used in v1-3
         if self.version > 3 {
             return;
@@ -2185,7 +2185,7 @@ impl Zmachine {
     }
 
     // OP0_188
-    fn do_show_status(&self) {
+    fn do_show_status(&mut self) {
         self.update_status_bar();
     }
 

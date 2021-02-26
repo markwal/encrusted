@@ -121,7 +121,7 @@ impl UI for WebUI {
         self.buffer.clear();
     }
 
-    fn set_status_bar(&self, left: &str, right: &str) {
+    fn set_status_bar(&mut self, left: &str, right: &str) {
         let msg = serde_json::to_string(&(left, right)).unwrap();
         self.message("header", &msg)
     }

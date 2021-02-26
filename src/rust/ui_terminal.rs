@@ -2,11 +2,12 @@
 
 use std::boxed::Box;
 use std::io;
-use std::io::Write;
+use std::io::{stdout, Write};
 
+use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
+use crossterm::style::{style, Color, Attribute, ContentStyle};
 use regex::Regex;
-use atty::Stream;
-use terminal_size::{Width, Height, terminal_size};
+use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
 
 use traits::UI;
 
@@ -19,26 +20,61 @@ lazy_static! {
 #[derive(Debug)]
 pub struct TerminalUI {
     isatty: bool,
-    width: usize,
-    x_position: usize,
+    buffer: WrapBuffer,
+    window: Window,
+}
+
+#[derive(Debug)]
+struct Point {
+    x: u16,
+    y: u16,
+}
+
+#[derive(Debug)]
+struct Window {
+    buffer: TermBuffer,
+    cursor: Point,
+    style: ContentStyle,
 }
 
 impl TerminalUI {
+    pub fn new_with_width(width: u16) -> Box<TerminalUI> {
+        let width = if width == 0 { u16::MAX } else { width };
+        let mut isatty = false;
+
+        let area = if let Ok((w, h)) = terminal::size() {
+            isatty = stdout().is_tty();
+            let margin = if w > width { (w - width) / 2 } else { 0 }; // round to equal margins
+            Rect {
+                x: margin,
+                y: 1,
+                width: w - margin * 2,
+                height: h,
+            }
+        }
+        else {
+            Rect {
+                x: 0,
+                y: 0,
+                width: 60,
+                height: 25,
+            }
+        };
+
+        Box::new(TerminalUI {
+            isatty: isatty,
+            buffer: WrapBuffer::new(area),
+            window: Window {
+                buffer: TermBuffer::new(Rect { x: area.x, y: 0, width: area.width, height: 1 }),
+                cursor: Point { x: 0, y: 0 },
+                style: ContentStyle::new(),
+            },
+        })
+    }
+
     fn print_raw(&self, raw: &str) {
         print!("{}", raw);
         io::stdout().flush().unwrap();
-    }
-
-    fn enter_alternate_screen(&self) {
-        if self.is_term() {
-            self.print_raw("\x1B[?1049h");
-        }
-    }
-
-    fn end_alternate_screen(&self) {
-        if self.is_term() {
-            self.print_raw("\x1B[?1049l");
-        }
     }
 
     fn is_term(&self) -> bool {
@@ -48,27 +84,12 @@ impl TerminalUI {
 
 impl UI for TerminalUI {
     fn new() -> Box<TerminalUI> {
-        let size = terminal_size();
-        if let Some((Width(w), Height(_))) = size {
-            Box::new(TerminalUI {
-                isatty: atty::is(Stream::Stdout),
-                width: usize::from(w),
-                x_position: 0,
-            })
-        } else {
-            Box::new(TerminalUI {
-                isatty: false,
-                width: 0,
-                x_position: 0,
-            })
-        }
+        Self::new_with_width(55)
     }
 
     fn clear(&self) {
-        // Clear screen: ESC [2J
-        // Move cursor to 1x1: [H
         if self.is_term() {
-            self.print_raw("\x1B[2J\x1B[H");
+            execute!(stdout(), terminal::Clear(ClearType::All)).unwrap();
         }
     }
 
@@ -78,46 +99,7 @@ impl UI for TerminalUI {
             return;
         }
 
-        // `.lines()` discards trailing \n and collapses multiple \n's between lines
-        let lines = text.split('\n').collect::<Vec<_>>();
-        let num_lines = lines.len();
-
-        // implements some word-wrapping so words don't get split across lines
-        lines.iter().enumerate().for_each(|(i, line)| {
-            // skip if this line is just the result of a "\n"
-            if !line.is_empty() {
-                // `.split_whitespace` having similar issues as `.lines` above
-                let words = line.split(' ').collect::<Vec<_>>();
-                let num_words = words.len();
-
-                // check that each word can fit on the line before printing it.
-                // if its too big, bump to the next line and reset x-position
-                words.iter().enumerate().for_each(|(i, word)| {
-                    self.x_position += word.len();
-
-                    if self.x_position > self.width {
-                        self.x_position = word.len();
-                        println!();
-                    }
-
-                    print!("{}", word);
-
-                    // add spaces back in if we can (an not on the last element)
-                    if i < num_words - 1 && self.x_position < self.width {
-                        self.x_position += 1;
-                        print!(" ");
-                    }
-                });
-            }
-
-            // add newlines back that were removed from split
-            if i < num_lines - 1 {
-                println!();
-                self.x_position = 0;
-            }
-        });
-
-        io::stdout().flush().unwrap();
+        self.buffer.print(text);
     }
 
     fn debug(&mut self, text: &str) {
@@ -126,18 +108,23 @@ impl UI for TerminalUI {
 
     fn print_object(&mut self, object: &str) {
         if self.is_term() {
-            self.print_raw("\x1B[37;1m");
+            self.buffer.print_styled(&style(object).with(Color::White).attribute(Attribute::Bold));
         }
-        self.print(object);
-        if self.is_term() {
-            self.print_raw("\x1B[0m");
+        else {
+            self.print(object);
         }
     }
 
-    fn set_status_bar(&self, left: &str, right: &str) {
-        // ESC ]2; "text" BEL
+    fn set_status_bar(&mut self, left: &str, right: &str) {
         if self.is_term() {
-            self.print_raw(&format!("\x1B]2;{}  -  {}\x07", left, right));
+            let width = self.window.buffer.area.width;
+            self.window.buffer.print_at(0, 0,
+                &format!(" {:width$}", left, width = (width - 1) as usize),
+                ContentStyle::new().attribute(Attribute::Reverse)
+            );
+
+            let right_width = count_graphemes(right) as u16 + 1;
+            self.window.buffer.print_at(width - right_width, 0, right, ContentStyle::new().attribute(Attribute::Reverse));
         }
     }
 

@@ -37,7 +37,7 @@ use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
 use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
 use unicode_segmentation::{UWordBoundIndices, UnicodeSegmentation};
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Rect {
     pub x: u16,
     pub y: u16,
@@ -48,7 +48,7 @@ pub struct Rect {
 #[derive(Debug)]
 /// Terminal UI text and style buffer
 pub struct TermBuffer {
-    area: Rect,
+    pub area: Rect,
     rows: Vec<Row>,
     first_row: u32,
 }
@@ -92,7 +92,10 @@ impl TermBuffer {
         self.rows[irow].overwrite_at(x, &s, &style);
 
         // ignore output errors
-        queue!(stdout(), cursor::MoveTo(x, y), Print(style.apply(s))).unwrap_or(());
+        queue!(stdout(),
+            cursor::MoveTo(x + self.area.x, y + self.area.y),
+            Print(style.apply(s))
+        ).unwrap_or(());
         stdout().flush().unwrap_or(());
     }
 
@@ -144,6 +147,10 @@ impl WrapBuffer {
         return self.lines[l - 1].text.ends_with("\n");
     }
 
+    pub fn print_styled(&mut self, s: &StyledContent<&str>) {
+        self.print_style(&s.content(), &s.style());
+    }
+
     pub fn print_style(&mut self, s: &str, style: &ContentStyle) {
         if self.last_line_terminated() {
             self.lines.push(Row::new());
@@ -163,10 +170,15 @@ impl WrapBuffer {
             width_row = count_graphemes(&row.text);
         }
 
+        let mut scroll_up = false;
         for (_, row_text) in s.wrap_to_width_offset(self.termbuf.area.width as usize, width_row) {
+            if scroll_up || row_text.len() == 0 {
+                self.termbuf.first_row += 1;
+                self.termbuf.refresh();
+            }
+            scroll_up = true;
             self.termbuf.print_at(width_row as u16, self.termbuf.area.height - 1, row_text, *style);
             width_row = 0;
-            self.termbuf.refresh();
         }
     }
 
@@ -271,7 +283,7 @@ impl<'a> Iterator for RowIter<'a> {
     }
 }
 
-fn count_graphemes(s: &str) -> usize {
+pub fn count_graphemes(s: &str) -> usize {
     UnicodeSegmentation::grapheme_indices(s, true).count()
 }
 
@@ -282,7 +294,6 @@ struct WordWrapIter<'a> {
     cur_width: usize,
     pos: usize,
     big_word_end: usize,
-    first_line_of_paragraph: bool,
 }
 
 trait WordWrapper {
@@ -299,7 +310,6 @@ impl WordWrapper for str {
             cur_width: offset,
             pos: 0,
             big_word_end: 0,
-            first_line_of_paragraph: offset == 0,
         }
     }
 
@@ -313,14 +323,22 @@ impl<'a> Iterator for WordWrapIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.pos >= self.s.len() {
-            return None;
+            return None; // done
+        }
+
+        if &self.s[self.pos..self.pos+1] == "\n" {
+            let start = self.pos;
+            self.pos += 1;
+            if self.pos >= self.s.len() {
+                return Some((start, &self.s[start..start]))
+            }
         }
 
         loop {
+            let start = self.pos;
             // split a big word into lines of self.width graphemes
             if self.big_word_end > self.pos {
                 let mut width = 0;
-                let start = self.pos;
                 let mut iter = self.s[start..self.big_word_end].grapheme_indices(true);
                 for (next, _grapheme) in &mut iter {
                     width += 1;
@@ -335,33 +353,49 @@ impl<'a> Iterator for WordWrapIter<'a> {
 
             // get the next word
             if let Some((next_pos, word)) = self.iter.next() {
-                let word_graphemes = count_graphemes(word);
-                let start = self.pos;
+                let mut word_graphemes = count_graphemes(word);
 
                 // new line
                 if word == "\n" {
-                    self.pos = next_pos + word.len();
-                    self.first_line_of_paragraph = true;
+                    self.pos = next_pos;
+                    self.cur_width = 0;
                     return Some((start, &self.s[start..next_pos]));
-                }
-
-                // skip trailing whitespace from previous line
-                if self.cur_width == 0 && !self.first_line_of_paragraph && word.chars().all(char::is_whitespace) {
-                    continue;
                 }
 
                 // if the next word doesn't fit, return what we have so far
                 if self.cur_width + word_graphemes > self.width {
                     self.pos = next_pos;
+
+                    // first eat all of the trailing whitepace
+                    let mut next_pos = next_pos;
+                    let mut word = word;
+                    while word.chars().all(char::is_whitespace) && word != "\n" {
+                        if let Some((n, w)) = self.iter.next() {
+                            next_pos = n;
+                            word = w;
+                        }
+                        else {
+                            next_pos = self.s.len();
+                            word = "";
+                            break;
+                        }
+                    }
+
+                    if self.pos != next_pos {
+                         word_graphemes = count_graphemes(word);
+                    }
+                    self.pos = next_pos;
+
+                    // do we have a wider than the screen word?
                     if word_graphemes > self.width {
                         self.big_word_end = next_pos + word.len();
                         if self.cur_width == 0 {
                             continue; // nothing to return yet, split the big word now
                         }
                     }
-                    self.first_line_of_paragraph = false;
-                    self.cur_width = 0;
-                    self.pos = next_pos;
+
+                    // reserve space for the word on the next line and return this line
+                    self.cur_width = word_graphemes;
                     return Some((start, &self.s[start..next_pos]));
                 }
 
@@ -370,7 +404,7 @@ impl<'a> Iterator for WordWrapIter<'a> {
             }
             else {
                 self.pos = self.s.len();
-                return None
+                return Some((start, &self.s[start..self.pos]));
             }
         }
     }
