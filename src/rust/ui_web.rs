@@ -146,7 +146,7 @@ impl UI for WebUI {
 
     fn clear(&self) {}
     fn reset(&self) {}
-    fn get_user_input(&self) -> String {
+    fn get_user_input(&mut self) -> String {
         unimplemented!();
     }
 }

@@ -35,7 +35,7 @@ use std::ops::Range;
 use std::iter::Enumerate;
 use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
 use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
-use unicode_segmentation::{UWordBoundIndices, UnicodeSegmentation};
+use unicode_segmentation::{UnicodeSegmentation};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
@@ -103,7 +103,7 @@ impl TermBuffer {
     pub fn refresh(&self) {
         let mut stdout = stdout();
         let mut y = self.area.y;
-        for row in &self.rows[self.first_row as usize..] {
+        for row in &self.rows[(self.first_row + 1) as usize..] {
             queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
             for s in row.iter_width(self.area.width) {
                 queue!(stdout, Print(s)).unwrap_or(());
@@ -289,11 +289,9 @@ pub fn count_graphemes(s: &str) -> usize {
 
 struct WordWrapIter<'a> {
     s: &'a str,
-    iter: UWordBoundIndices<'a>,
+    pos: usize,
     width: usize,
     cur_width: usize,
-    pos: usize,
-    big_word_end: usize,
 }
 
 trait WordWrapper {
@@ -305,11 +303,9 @@ impl WordWrapper for str {
     fn wrap_to_width_offset<'a>(&'a self, width: usize, offset: usize) -> WordWrapIter<'a> {
         WordWrapIter {
             s: self,
-            iter: self.split_word_bound_indices(),
+            pos: 0,
             width: width,
             cur_width: offset,
-            pos: 0,
-            big_word_end: 0,
         }
     }
 
@@ -326,87 +322,74 @@ impl<'a> Iterator for WordWrapIter<'a> {
             return None; // done
         }
 
-        if &self.s[self.pos..self.pos+1] == "\n" {
-            let start = self.pos;
+        let start = self.pos;
+
+        // special case of a \n at the end. An extra empty string to signal that next
+        // run of text shouldn't be appended to the last run from this one
+        if &self.s[self.pos..] == "\n" {
             self.pos += 1;
-            if self.pos >= self.s.len() {
-                return Some((start, &self.s[start..start]))
-            }
+            return Some((start, &self.s[start..start]))
         }
 
-        loop {
-            let start = self.pos;
-            // split a big word into lines of self.width graphemes
-            if self.big_word_end > self.pos {
-                let mut width = 0;
-                let mut iter = self.s[start..self.big_word_end].grapheme_indices(true);
-                for (next, _grapheme) in &mut iter {
-                    width += 1;
-                    if width >= self.width {
-                        self.pos = next;
-                        return Some((start, &self.s[start..next]));
-                    }
-                }
-                self.pos = self.big_word_end;
-                return Some((start, &self.s[start..self.big_word_end]));
+        // for each word in the remaining input
+        for (i, word) in &mut self.s[start..].split_word_bound_indices() {
+            let next_pos = start + i;
+            let word_graphemes = count_graphemes(word);
+
+            // new line
+            if word == "\n" {
+                // min allows a final new line to come through twice (for that empty string above)
+                self.pos = cmp::min(next_pos + 1, self.s.len() - 1);
+                self.cur_width = 0;
+                return Some((start, &self.s[start..next_pos]));
             }
 
-            // get the next word
-            if let Some((next_pos, word)) = self.iter.next() {
-                let mut word_graphemes = count_graphemes(word);
+            // if the next word doesn't fit, return what we have so far
+            if self.cur_width + word_graphemes > self.width {
 
-                // new line
-                if word == "\n" {
-                    self.pos = next_pos;
-                    self.cur_width = 0;
-                    return Some((start, &self.s[start..next_pos]));
+                // do we have a wider than the screen word?
+                if self.cur_width == 0 {
+                    // nth(width) grapheme
+                    let mut grapheme_indices = word.grapheme_indices(true);
+                    if let Some((next, _)) = &mut grapheme_indices.nth(self.width) {
+                        self.pos = *next;
+                    }
+                    else {
+                        self.pos = next_pos + word.len();
+                    }
+                    return Some((next_pos, &self.s[next_pos..self.pos]));
                 }
 
-                // if the next word doesn't fit, return what we have so far
-                if self.cur_width + word_graphemes > self.width {
-                    self.pos = next_pos;
-
-                    // first eat all of the trailing whitepace
-                    let mut next_pos = next_pos;
-                    let mut word = word;
-                    while word.chars().all(char::is_whitespace) && word != "\n" {
-                        if let Some((n, w)) = self.iter.next() {
-                            next_pos = n;
-                            word = w;
-                        }
-                        else {
-                            next_pos = self.s.len();
-                            word = "";
-                            break;
-                        }
+                // first eat all of the trailing whitepace
+                let end = next_pos;
+                let mut next_pos = next_pos;
+                let mut ate_it_all = false;
+                for (i, w) in &mut self.s[end..].split_word_bound_indices() {
+                    if !w.chars().all(char::is_whitespace) || word == "\n" {
+                        next_pos = end + i;
+                        ate_it_all = false;
+                        break;
                     }
-
-                    if self.pos != next_pos {
-                         word_graphemes = count_graphemes(word);
-                    }
-                    self.pos = next_pos;
-
-                    // do we have a wider than the screen word?
-                    if word_graphemes > self.width {
-                        self.big_word_end = next_pos + word.len();
-                        if self.cur_width == 0 {
-                            continue; // nothing to return yet, split the big word now
-                        }
-                    }
-
-                    // reserve space for the word on the next line and return this line
-                    self.cur_width = word_graphemes;
-                    return Some((start, &self.s[start..next_pos]));
+                    ate_it_all = true; // maybe
                 }
 
-                // keep this word
-                self.cur_width += word_graphemes;
+                // all the rest must've been whitespace
+                if ate_it_all {
+                    next_pos = self.s.len();
+                }
+
+                // return the accumulated line
+                self.pos = next_pos;
+                self.cur_width = 0;
+                return Some((start, &self.s[start..end]));
             }
-            else {
-                self.pos = self.s.len();
-                return Some((start, &self.s[start..self.pos]));
-            }
+
+            // keep this word
+            self.cur_width += word_graphemes;
         }
+
+        self.pos = self.s.len();
+        return if self.pos > start { Some((start, &self.s[start..self.pos])) } else { None };
     }
 }
 

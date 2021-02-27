@@ -128,7 +128,7 @@ impl UI for TerminalUI {
         }
     }
 
-    fn get_user_input(&self) -> String {
+    fn get_user_input(&mut self) -> String {
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)
@@ -136,11 +136,17 @@ impl UI for TerminalUI {
 
         // trim, strip and control sequences that might have gotten in,
         // and then trim once more to get rid of any excess whitespace
-        ANSI_RE
+        let input = ANSI_RE
             .replace_all(input.trim(), "")
             .to_string()
             .trim()
-            .to_string()
+            .to_string();
+
+        if self.is_term() {
+            self.buffer.print(&format!("{}\n\n", &input));
+        }
+
+        input
     }
 
     fn reset(&self) {

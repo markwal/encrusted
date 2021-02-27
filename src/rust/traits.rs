@@ -11,7 +11,7 @@ pub trait UI {
 
     // only used by terminal ui
     fn reset(&self);
-    fn get_user_input(&self) -> String;
+    fn get_user_input(&mut self) -> String;
 
     // only used by web ui
     fn flush(&mut self);
