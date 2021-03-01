@@ -58,7 +58,7 @@ fn main() {
         .get_matches();
 
     let path = Path::new(matches.value_of("FILE").unwrap_or("assets/zork2.z3"));
-    let width = matches.value_of("width").unwrap_or("60").parse::<u16>().unwrap_or(1);
+    let mut width = matches.value_of("width").unwrap_or("60").parse::<u16>().unwrap_or(1);
 
     if (1..10).contains(&width) {
         println!("\nExpected a valued from 10 to 65535 for width or 0=full terminal width.");
@@ -91,6 +91,8 @@ fn main() {
     }
 
     let ui = TerminalUI::new_with_width(width);
+    width = ui.width;
+    let height = ui.height;
 
     let mut opts = Options::default();
     opts.save_dir = path.parent().unwrap().to_string_lossy().into_owned();
@@ -100,6 +102,11 @@ fn main() {
     opts.rand_seed = [rand32(), rand32(), rand32(), rand32()];
 
     let mut zvm = Zmachine::new(data, ui, opts);
+
+    zvm.terp_caps.height = height;
+    zvm.terp_caps.width = width;
+    zvm.terp_caps.split_screen = true;
+    zvm.restart_header();
 
     zvm.run();
 }

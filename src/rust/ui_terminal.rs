@@ -6,6 +6,8 @@ use std::io::{stdout, Write};
 
 use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
+use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::{event, event::Event};
 use regex::Regex;
 use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
 
@@ -20,6 +22,8 @@ lazy_static! {
 #[derive(Debug)]
 pub struct TerminalUI {
     isatty: bool,
+    pub height: u16,
+    pub width: u16,
     buffer: WrapBuffer,
     window: Window,
 }
@@ -39,30 +43,41 @@ struct Window {
 
 impl TerminalUI {
     pub fn new_with_width(width: u16) -> Box<TerminalUI> {
-        let width = if width == 0 { u16::MAX } else { width };
+        let mut width = if width == 0 { u16::MAX } else { width };
+        let mut height = 25;
         let mut isatty = false;
 
         let area = if let Ok((w, h)) = terminal::size() {
             isatty = stdout().is_tty();
             let margin = if w > width { (w - width) / 2 } else { 0 }; // round to equal margins
+            width = w - margin * 2;
+            height = h;
             Rect {
                 x: margin,
                 y: 1,
                 width: w - margin * 2,
-                height: h,
+                height: h - 1,
             }
         }
         else {
+            width = 60;
             Rect {
                 x: 0,
                 y: 0,
-                width: 60,
-                height: 25,
+                width: width,
+                height: height,
             }
         };
 
+        if isatty {
+            // intentionally ignore failure
+            let _ = execute!(stdout(), EnterAlternateScreen);
+        }
+
         Box::new(TerminalUI {
             isatty: isatty,
+            height: height,
+            width: width,
             buffer: WrapBuffer::new(area),
             window: Window {
                 buffer: TermBuffer::new(Rect { x: area.x, y: 0, width: area.width, height: 1 }),
@@ -79,6 +94,22 @@ impl TerminalUI {
 
     fn is_term(&self) -> bool {
         self.isatty
+    }
+}
+
+impl Drop for TerminalUI {
+    fn drop(&mut self) {
+        if self.is_term() {
+            println!("[Hit any key to exit.]");
+            loop {
+                match event::read().unwrap() {
+                    Event::Key(_) => break,
+                    Event::Mouse(_) => break,
+                    _ => continue,
+                }
+            }
+            execute!(stdout(), LeaveAlternateScreen).unwrap_or(());
+        }
     }
 }
 

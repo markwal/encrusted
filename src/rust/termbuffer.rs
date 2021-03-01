@@ -260,7 +260,8 @@ impl<'a> Iterator for RowIterRunRanges<'a> {
 
 struct RowIter<'a> {
     row: &'a Row,
-    width: u16,
+    width: usize,
+    graphemes: usize,
     iter: Enumerate<RowIterRunRanges<'a>>,
 }
 
@@ -268,14 +269,20 @@ impl<'a> Iterator for RowIter<'a> {
     type Item = StyledContent<&'a str>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.graphemes >= self.width {
+            return None;
+        }
+
         if let Some((i, mut r)) = self.iter.next() {
-            if r.start > self.width as usize {
-                return None;
+            let run_text = &self.row.text[r.start..r.end];
+            let mut grapheme_indices = run_text.grapheme_indices(true);
+            if let Some((next, _)) = &mut grapheme_indices.nth((self.width - self.graphemes).into()) {
+                r.end = r.start + *next;
             }
-            if r.end > self.width as usize {
-                r.end = self.width as usize;
-            }
-            Some(self.row.runs[i].style.apply(&self.row.text[r]))
+
+            let run_text = &self.row.text[r];
+            self.graphemes += count_graphemes(&run_text);
+            Some(self.row.runs[i].style.apply(&run_text))
         }
         else {
             None
@@ -445,7 +452,8 @@ impl Row {
         RowIter {
             row: self,
             iter: self.iter_run_ranges().enumerate(),
-            width: width,
+            width: width as usize,
+            graphemes: 0,
         }
     }
 

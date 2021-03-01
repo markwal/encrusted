@@ -43,6 +43,23 @@ pub struct Object {
     children: Vec<Box<Object>>,
 }
 
+// v6 only
+#[derive(Debug)]
+pub struct WordWrappedMemStream {
+    // v6 only, and also optional there
+    wrap_width: u16,
+    line_width: u16,
+    total_width: u16,
+}
+
+const MAX_MEM_STREAMS: usize = 16;
+
+#[derive(Debug)]
+pub struct MemStream {
+    addr: u16,
+    wrap_info: Option<WordWrappedMemStream>,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct TerpCaps {
     pub height: u16,
@@ -256,6 +273,7 @@ pub struct Zmachine {
     routine_offset: usize,
     string_offset: usize,
     alphabet: [Vec<String>; 3],
+    unicode_alphabet: Vec<String>,
     abbrev_table: usize,
     separators: Vec<char>,
     dictionary: HashMap<String, usize>,
@@ -272,7 +290,9 @@ pub struct Zmachine {
     undos: Vec<(String, Vec<u8>)>,
     redos: Vec<(String, Vec<u8>)>,
     rng: rand::XorShiftRng,
-    terp_caps: TerpCaps,
+    pub terp_caps: TerpCaps,
+    memory_streams: Vec<MemStream>,
+    ostream_screen: bool,
 }
 
 impl Zmachine {
@@ -287,6 +307,12 @@ impl Zmachine {
             Zmachine::load_alphabet(&memory)
         } else {
             Zmachine::default_alphabet()
+        };
+        let unicode_alphabet = if version >= 5 {
+            Zmachine::load_unicode_alphabet(&memory)
+        }
+        else {
+            Zmachine::default_unicode_alphabet()
         };
 
         let terp_caps = TerpCaps {
@@ -318,6 +344,7 @@ impl Zmachine {
             pc: initial_pc,
             frames: vec![Frame::empty()],
             alphabet,
+            unicode_alphabet,
             abbrev_table: memory.read_word(0x18) as usize,
             separators: Vec::new(),
             dictionary: HashMap::new(),
@@ -332,7 +359,9 @@ impl Zmachine {
             rng: rand::SeedableRng::from_seed(options.rand_seed.clone()),
             memory,
             options,
-            terp_caps
+            terp_caps,
+            memory_streams: Vec::new(),
+            ostream_screen: true,
         };
 
         // read into dictionary & word separators
@@ -387,6 +416,31 @@ impl Zmachine {
                 Zmachine::to_alphabet_entry(&A1),
                 Zmachine::to_alphabet_entry(&A2),
             ]
+        }
+    }
+
+    fn default_unicode_alphabet() -> Vec<String> {
+        vec![
+            "\u{e4}", "\u{f6}", "\u{fc}", "\u{c4}", "\u{d6}", "\u{dc}", "\u{df}", "\u{bb}",
+            "\u{ab}", "\u{eb}", "\u{ef}", "\u{ff}", "\u{cb}", "\u{cf}", "\u{e1}", "\u{e9}",
+            "\u{ed}", "\u{f3}", "\u{fa}", "\u{fd}", "\u{c1}", "\u{c9}", "\u{cd}", "\u{d3}",
+            "\u{da}", "\u{dd}", "\u{e0}", "\u{e8}", "\u{ec}", "\u{f2}", "\u{f9}", "\u{c0}",
+            "\u{c8}", "\u{cc}", "\u{d2}", "\u{d9}", "\u{e2}", "\u{ea}", "\u{ee}", "\u{f4}",
+            "\u{fb}", "\u{c2}", "\u{ca}", "\u{ce}", "\u{d4}", "\u{db}", "\u{e5}", "\u{c5}",
+            "\u{f8}", "\u{d8}", "\u{e3}", "\u{f1}", "\u{f5}", "\u{c3}", "\u{d1}", "\u{d5}",
+            "\u{e6}", "\u{c6}", "\u{e7}", "\u{c7}", "\u{fe}", "\u{f0}", "\u{de}", "\u{d0}",
+            "\u{a3}", "\u{0153}", "\u{0152}", "\u{a1}", "\u{bf}"
+        ].into_iter().map(|x| x.to_string()).collect()
+    }
+
+    fn load_unicode_alphabet(memory: &Buffer) -> Vec<String> {
+        if let Some(unicode_alphabet_addr) = Zmachine::read_header_extension(memory, 3) {
+            let mut read = memory.get_reader(unicode_alphabet_addr as usize);
+            let len = read.byte();
+            (0..len).map(|_| { let w = read.word(); String::from_utf16_lossy(&[if w < 0x20 { '?' as u16 } else { w }]) } ).collect()
+        }
+        else {
+            Zmachine::default_unicode_alphabet()
         }
     }
 
@@ -567,7 +621,7 @@ impl Zmachine {
                     }
                     // normal case, adds letter from correct alphabet and resets to A0
                     (_, &Alphabet(num)) => {
-                        let letter = &self.alphabet[num][zchar as usize];
+                        let letter = self.from_zscii(num, zchar as usize);
                         zstring.push_str(letter);
                         Alphabet(0)
                     }
@@ -594,6 +648,25 @@ impl Zmachine {
         zstring
     }
 
+    fn from_zscii(&self, ialphabet: usize, zchar: usize) -> &str {
+        let letter_string = &self.alphabet[ialphabet][zchar];
+        let letter = letter_string.chars().next().unwrap_or(0 as char) as u32;
+
+        // TODO: also skip if story_id == BEYOND_ZORK
+        if self.version >= 5 && letter >= 0x9b {
+            let letter = letter - 0x9b;
+            if (letter as usize) < self.unicode_alphabet.len() {
+                &self.unicode_alphabet[letter as usize]
+            }
+            else {
+                &"?"
+            }
+        }
+        else {
+            letter_string
+        }
+    }
+
     // reads the ENCODED byte length of a zstring, how many consecutive
     // bytes in memory it is (not just the number of characters)
     fn zstring_length(&self, addr: usize) -> usize {
@@ -612,7 +685,7 @@ impl Zmachine {
         length
     }
 
-    fn restart_header(&mut self) {
+    pub fn restart_header(&mut self) {
         // config
         let mut config: TerpConfig = Default::default();
         if self.version == 3 {
@@ -1123,6 +1196,8 @@ impl Zmachine {
 
     fn get_status(&self) -> (String, String) {
         if self.version > 3 {
+            // many callers expect left = location
+            // TODO: location for version > 3
             return ("".to_string(), "".to_string());
         }
 
@@ -1455,10 +1530,12 @@ impl Zmachine {
             (OP0_191, &[]) => Some(1), // piracy
             (VAR_231, &[range]) => Some(self.do_random(range)),
             (VAR_233, &[var]) if self.version == 6 => Some(self.do_pull(var)),
+            (VAR_246, _) => Some(self.do_read_char()), // TODO v4+ time & routine
             (VAR_248, &[val]) if self.version >= 5 => Some(self.do_not(val)),
             (VAR_255, &[num]) => Some(self.do_check_arg_count(num)),
             (EXT_1002, &[num, places]) => Some(self.do_log_shift(num, places)),
             (EXT_1003, &[num, places]) => Some(self.do_art_shift(num, places)),
+            (EXT_1012, &[ucs2]) => Some(self.do_check_unicode(ucs2)),
             _ => None,
         };
 
@@ -1503,7 +1580,7 @@ impl Zmachine {
             (VAR_225, &[array, index, value]) => self.do_storew(array, index, value),
             (VAR_226, &[array, index, value]) => self.do_storeb(array, index, value),
             (VAR_227, &[obj, prop, value]) => self.do_put_prop(obj, prop, value),
-            (VAR_228, &[text, parse]) => self.do_sread(instr, text, parse),
+            (VAR_228, &[text, parse]) => self.do_sread(instr, text, parse), // TODO v4+ time & routine
             (VAR_229, &[chr]) => self.do_print_char(chr),
             (VAR_230, &[num]) => self.do_print_num(num),
             (VAR_232, &[value]) => self.do_push(value),
@@ -1522,6 +1599,7 @@ impl Zmachine {
             (VAR_243, &[num, addr, width]) => self.do_output_stream(num, addr, width),
             (VAR_249, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn
             (VAR_250, _) if !args.is_empty() => self.do_call(instr, args[0], &args[1..]), // call_vn2
+            (EXT_1011, &[ucs2]) => self.do_print_unicode(ucs2),
 
             // special cases to no-op: (input/output streams & sound effects)
             // these might be present in some v3 games but aren't implemented yet
@@ -1537,6 +1615,66 @@ impl Zmachine {
         // (but not for jumps, calls, save/restore, or anything with special needs)
         if instr.advances() && instr.should_advance(self.version) {
             self.pc = instr.next;
+        }
+    }
+
+    #[allow(dead_code)]
+    fn read_header_extension(memory: &Buffer, word_index: u16) -> Option<u16> {
+        let ext_addr = memory.read_word(HeaderOffset::EXTENSION_TABLE as usize);
+        if ext_addr == 0 {
+            return None;
+        }
+        let ext_len = memory.read_word(ext_addr as usize);
+
+        if word_index > ext_len {
+            None
+        }
+        else {
+            Some(memory.read_word((ext_addr + word_index * 2) as usize))
+        }
+    }
+
+    fn memory_stream_open(&mut self, addr: u16, wrap_width: u16) {
+        assert!(self.memory_streams.len() < MAX_MEM_STREAMS,
+            "Game exceeded maximum nesting ({})for memory streams.", MAX_MEM_STREAMS);
+
+        self.memory_streams.push(MemStream {
+            addr: addr,
+            wrap_info: if wrap_width > 0 {
+                Some(WordWrappedMemStream {
+                    wrap_width: wrap_width,
+                    line_width: 0,
+                    total_width: 0,
+                })
+            }
+            else {
+                None
+            }
+        });
+    }
+
+    fn memory_stream_close(&mut self) {
+        if !self.memory_streams.is_empty() {
+            self.memory_streams.pop();
+        }
+    }
+
+    fn print(&mut self, text: &str) {
+        if self.memory_streams.is_empty() {
+            self.ui.print(text)
+        }
+        else {
+            // TODO: translate to zscii
+            panic!("Haven't implemented zscii translation yet!");
+        }
+    }
+
+    fn print_object(&mut self, object: &str) {
+        if self.memory_streams.is_empty() {
+            self.ui.print_object(object);
+        }
+        else {
+            self.print(object);
         }
     }
 
@@ -1790,7 +1928,7 @@ impl Zmachine {
         self.ui.message(msg_type, &msg_body);
     }
 
-    // Web UI only -- for now, TODO: console also
+    // Web UI only
     #[allow(dead_code)]
     pub fn set_terp_caps(&mut self, v: serde_json::Value) {
         deserialize_into_terp_caps(v, &mut self.terp_caps).unwrap();
@@ -1980,7 +2118,7 @@ impl Zmachine {
     // OP1_135
     fn do_print_addr(&mut self, addr: u16) {
         let zstring = self.read_zstring(addr as usize);
-        self.ui.print(&zstring);
+        self.print(&zstring);
     }
 
     // OP1_136 : call_1s
@@ -1993,7 +2131,7 @@ impl Zmachine {
     // OP1_138
     fn do_print_obj(&mut self, obj: u16) {
         let name = self.get_object_name(obj);
-        self.ui.print_object(&name);
+        self.print_object(&name);
     }
 
     // OP1_139
@@ -2014,7 +2152,7 @@ impl Zmachine {
     fn do_print_paddr(&mut self, addr: u16) {
         let paddr = self.unpack_print_paddr(addr);
         let zstring = self.read_zstring(paddr);
-        self.ui.print(&zstring);
+        self.print(&zstring);
     }
 
     // OP1_142
@@ -2040,14 +2178,14 @@ impl Zmachine {
     // OP0_178
     fn do_print(&mut self, instr: &Instruction) {
         let text = instr.text.as_ref().expect("Can't print with no text!");
-        self.ui.print(text);
+        self.print(text);
     }
 
     // OP0_179
     fn do_print_ret(&mut self, instr: &Instruction) {
         let text = instr.text.as_ref().expect("Can't print with no text!");
-        self.ui.print(text);
-        self.ui.print("\n");
+        self.print(text);
+        self.print("\n");
         self.return_from_routine(1);
     }
 
@@ -2181,7 +2319,7 @@ impl Zmachine {
 
     // OP0_187
     fn do_newline(&mut self) {
-        self.ui.print("\n");
+        self.print("\n");
     }
 
     // OP0_188
@@ -2281,7 +2419,8 @@ impl Zmachine {
         }
 
         // and save the current state
-        let location = self.get_object_name(self.read_global(0));
+        // TODO: location for version > 3
+        let location = if self.version <= 3 { self.get_object_name(self.read_global(0)) } else { String::new() };
         let state = self.make_save_state(instr.next);
         self.current_state = Some((location, state));
     }
@@ -2320,12 +2459,12 @@ impl Zmachine {
 
     // VAR_229
     fn do_print_char(&mut self, chr: u16) {
-        self.ui.print(&(chr as u8 as char).to_string());
+        self.print(&(chr as u8 as char).to_string());
     }
 
     // VAR_230
     fn do_print_num(&mut self, signed: u16) {
-        self.ui.print(&(signed as i16).to_string());
+        self.print(&(signed as i16).to_string());
     }
 
     // VAR_231
@@ -2365,32 +2504,48 @@ impl Zmachine {
         self.ui.debug(&format!("set_window: window: {}", window));
     }
 
-    // VAR_239 - set cursor position for indicated window
-    fn do_set_cursor(&mut self, window: u16, x: u16, y: u16) {
-        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}", window, x, y));
-    }
-
-    // VAR_240 - get current cursor position
-    fn do_get_cursor(&mut self, window: u16) {
-        self.ui.debug(&format!("get_cursor: window: {}", window));
-    }
-
-    // VAR_241 - set text style
-    fn do_set_text_style(&mut self, style: u16) {
-        self.ui.debug(&format!("set_text_style: style: {}", style));
-    }
-
-    // VAR_243 - set output stream
-    fn do_output_stream(&mut self, stream: u16, addr: u16, width: u16) {
-        self.ui.debug(&format!("output_stream: stream: {} addr: {} width: {}", stream, addr, width));
-    }
-
     // VAR_237
     fn do_erase_window(&mut self, signed: u16) {
         self.ui.debug(&format!("erase_window: window: {}", &signed));
         self.ui.erase_window(signed as i16);
     }
 
+    // VAR_239 - set cursor position for indicated window
+    fn do_set_cursor(&mut self, window: u16, x: u16, y: u16) {
+        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}", window, x, y));
+    }
+
+    // VAR_240 - get current cursor position for indicated window
+    fn do_get_cursor(&mut self, window: u16) {
+        self.ui.debug(&format!("get_cursor: window: {}", window));
+    }
+
+    // VAR_241
+    fn do_set_text_style(&mut self, style: u16) {
+        self.ui.debug(&format!("set_text_style: style: {}", style));
+    }
+
+    // VAR_243
+    fn do_output_stream(&mut self, signed: u16, addr: u16, width: u16) {
+        let stream = signed as i16;
+        // TODO: 2 & 4
+        // Game can also flip bit 0 of Flags 2 to toggle transcription
+        // 2 is transcript
+        // 4 is record user input for later playback
+        match stream {
+            1  => self.ostream_screen = true,
+            -1 => self.ostream_screen = false,
+            3  => self.memory_stream_open(addr, width),
+            -3 => self.memory_stream_close(),
+            _  => self.ui.debug(&format!("output_stream not yet implemented: stream: {}", stream)),
+        }
+    }
+
+    // VAR_246
+    fn do_read_char(&self) -> u16 {
+        // TODO to_zscii
+        return 0;
+    }
 
     // VAR_248 do_not() (same as OP1_143)
 
@@ -2431,6 +2586,28 @@ impl Zmachine {
             number >>= -places;
         }
         (number as i16) as u16
+    }
+
+    // EXT_1011
+    fn do_print_unicode(&mut self, ucs2: u16) {
+        self.print(&String::from_utf16_lossy(&[ucs2]));
+    }
+
+    // EXT_1012
+    // if ucs2 can be printed, return bit 0 set
+    // if ucs2 can be read from input, return bit 1 set
+    fn do_check_unicode(&self, ucs2: u16) -> u16 {
+        if ucs2 <= 0x1f {
+            if ucs2 == 0x08 || ucs2 == 0x0d || ucs2 == 0x1b {
+                return 2;
+            }
+            return 0;
+        }
+
+        // not clear to me that there is a way to interrogate the terminal about
+        // glyph availability, perhaps we could ask in the web ui, but for now
+        // we do what ncurses frotz does and claim we can show and read everything
+        return 3;
     }
 }
 
