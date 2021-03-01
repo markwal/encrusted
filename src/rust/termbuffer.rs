@@ -85,7 +85,7 @@ impl TermBuffer {
     pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: ContentStyle) {
         let irow = self.first_row as usize + y as usize;
         if irow as usize >= self.rows.len() {
-            for _i in self.rows.len()..(irow + 1) {
+            for _ in self.rows.len()..(irow + 1) {
                 self.rows.push(Row::new());
             }
         }
@@ -103,6 +103,9 @@ impl TermBuffer {
     pub fn refresh(&self) {
         let mut stdout = stdout();
         let mut y = self.area.y;
+        if self.first_row as usize >= self.rows.len() {
+            return;
+        }
         for row in &self.rows[self.first_row as usize..] {
             queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
             for s in row.iter_width(self.area.width) {
@@ -307,10 +310,12 @@ impl<'a> Iterator for UnicodeWordIter<'a> {
             let mut end = i + w.len();
             let mut eat_one = false;
 
-            if let Some((_, wnext)) = self.iter.peek() {
-                if wnext.chars().all(|c| c.is_ascii_punctuation()) {
-                    end += wnext.len();
-                    eat_one = true;
+            if w.chars().any(|c| c.is_alphanumeric()) {
+                if let Some((_, wnext)) = self.iter.peek() {
+                    if wnext.chars().any(|c| c.is_ascii_punctuation()) {
+                        end += wnext.len();
+                        eat_one = true;
+                    }
                 }
             }
             if eat_one {

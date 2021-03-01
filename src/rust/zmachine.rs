@@ -274,6 +274,7 @@ pub struct Zmachine {
     string_offset: usize,
     alphabet: [Vec<String>; 3],
     unicode_alphabet: Vec<String>,
+    reverse_unicode_alphabet: HashMap<String, u8>,
     abbrev_table: usize,
     separators: Vec<char>,
     dictionary: HashMap<String, usize>,
@@ -314,6 +315,13 @@ impl Zmachine {
         else {
             Zmachine::default_unicode_alphabet()
         };
+        let reverse_unicode_alphabet = {
+            let mut h = HashMap::new();
+            for (i, ch) in unicode_alphabet.iter().enumerate() {
+                h.insert(ch.to_string(), i as u8);
+            }
+            h
+        };
 
         let terp_caps = TerpCaps {
             height: 25,
@@ -345,6 +353,7 @@ impl Zmachine {
             frames: vec![Frame::empty()],
             alphabet,
             unicode_alphabet,
+            reverse_unicode_alphabet,
             abbrev_table: memory.read_word(0x18) as usize,
             separators: Vec::new(),
             dictionary: HashMap::new(),
@@ -667,6 +676,19 @@ impl Zmachine {
         }
     }
 
+    fn to_zscii(&self, ucs2: &str) -> u8 {
+        let ch = ucs2.chars().next().unwrap_or('?') as u32;
+        if ch < 0xa0 {
+            ch as u8
+        }
+        else {
+            if let Some(zchar) = self.reverse_unicode_alphabet.get(ucs2) {
+                zchar + 0x9b
+            }
+            else { '?' as u32 as u8 }
+        }
+    }
+
     // reads the ENCODED byte length of a zstring, how many consecutive
     // bytes in memory it is (not just the number of characters)
     fn zstring_length(&self, addr: usize) -> usize {
@@ -708,7 +730,6 @@ impl Zmachine {
         let screen_cols = if screen_cols > 120 { 120 } else { screen_cols };
         let screen_rows = self.terp_caps.height / self.terp_caps.font_height;
         let screen_rows = if screen_rows > 255 { 255 } else { screen_rows };
-        self.ui.debug(&format!("terp header cols: {} rows: {}\n", screen_cols, screen_rows));
         if self.version >= 4 {
             self.memory.write_byte(HeaderOffset::INTERPRETER_NUMBER as usize, 4 /* INTERP_AMIGA */);
             self.memory.write_byte(HeaderOffset::INTERPRETER_VERSION as usize, 'F' as u8);
@@ -1580,7 +1601,9 @@ impl Zmachine {
             (VAR_225, &[array, index, value]) => self.do_storew(array, index, value),
             (VAR_226, &[array, index, value]) => self.do_storeb(array, index, value),
             (VAR_227, &[obj, prop, value]) => self.do_put_prop(obj, prop, value),
-            (VAR_228, &[text, parse]) => self.do_sread(instr, text, parse), // TODO v4+ time & routine
+            (VAR_228, &[text]) => self.do_sread(instr, text, 0),
+            (VAR_228, &[text, parse]) => self.do_sread(instr, text, parse),
+            (VAR_228, &[text, parse, time, routine]) => self.do_sread_timer(instr, text, parse, time, routine),
             (VAR_229, &[chr]) => self.do_print_char(chr),
             (VAR_230, &[num]) => self.do_print_num(num),
             (VAR_232, &[value]) => self.do_push(value),
@@ -1606,8 +1629,8 @@ impl Zmachine {
             (VAR_244, _) | (VAR_245, _) => (),
 
             _ => panic!(
-                "\n\nOpcode not yet implemented: {} ({:?}) @ {:#04x}\n\n",
-                instr.name, instr.opcode, self.pc
+                "\n\nOpcode not yet implemented: {} ({:?}) @ {:#04x}\nargs: {:?}\n",
+                instr.name, instr.opcode, self.pc, &args[..]
             ),
         }
 
@@ -1664,8 +1687,20 @@ impl Zmachine {
             self.ui.print(text)
         }
         else {
-            // TODO: translate to zscii
-            panic!("Haven't implemented zscii translation yet!");
+            // TODO v6 width stuff
+            let stream = self.memory_streams.last().unwrap();
+            let mut count = 0;
+            for ch in text.chars() {
+                let zchar = self.to_zscii(&ch.to_string());
+                count += 1;
+                self.memory.write_byte((stream.addr + count) as usize, zchar);
+            }
+            assert!(count < 256, "maximum memory stream size exceeded");
+            self.memory.write_byte(stream.addr as usize, count as u8);
+
+            let dump = self.memory.read(stream.addr as usize, count as usize + 1);
+            self.ui.debug(&format!("\nmem_stream: {}\n",
+                &dump.iter().map(|b| format!("{:02X} ", b)).collect::<String>()));
         }
     }
 
@@ -2385,6 +2420,12 @@ impl Zmachine {
     // VAR_227
     fn do_put_prop(&mut self, obj: u16, prop: u16, value: u16) {
         self.put_prop(obj, prop, value);
+    }
+
+    // VAR_228 with time and routine args
+    fn do_sread_timer(&mut self, instr: &Instruction, text_addr: u16, parse_addr: u16, _decisecs: u16, _routine: u16) {
+        // TODO: call the timer
+        self.do_sread(instr, text_addr, parse_addr);
     }
 
     // VAR_228
