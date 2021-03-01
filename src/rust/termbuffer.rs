@@ -32,10 +32,10 @@ SOFTWARE.
 use std::io::{Write, stdout};
 use std::cmp;
 use std::ops::Range;
-use std::iter::Enumerate;
+use std::iter::{Enumerate, Peekable};
 use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
 use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
-use unicode_segmentation::{UnicodeSegmentation};
+use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
@@ -103,7 +103,7 @@ impl TermBuffer {
     pub fn refresh(&self) {
         let mut stdout = stdout();
         let mut y = self.area.y;
-        for row in &self.rows[(self.first_row + 1) as usize..] {
+        for row in &self.rows[self.first_row as usize..] {
             queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
             for s in row.iter_width(self.area.width) {
                 queue!(stdout, Print(s)).unwrap_or(());
@@ -287,6 +287,34 @@ pub fn count_graphemes(s: &str) -> usize {
     UnicodeSegmentation::grapheme_indices(s, true).count()
 }
 
+struct UnicodeWordIter<'a> {
+    s: &'a str,
+    iter: Peekable<UWordBoundIndices<'a>>,
+}
+
+impl<'a> Iterator for UnicodeWordIter<'a> {
+    type Item = (usize, &'a str);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some((i, w)) = self.iter.next() {
+            let mut end = i + w.len();
+            let mut eat_one = false;
+
+            if let Some((_, wnext)) = self.iter.peek() {
+                if wnext.chars().all(|c| c.is_ascii_punctuation()) {
+                    end += wnext.len();
+                    eat_one = true;
+                }
+            }
+            if eat_one {
+                self.iter.next();
+            }
+            Some((i, &self.s[i..end]))
+        }
+        else { None }
+    }
+}
+
 struct WordWrapIter<'a> {
     s: &'a str,
     pos: usize,
@@ -295,11 +323,19 @@ struct WordWrapIter<'a> {
 }
 
 trait WordWrapper {
+    fn word_bounds_for_wrapping<'a>(&'a self) -> UnicodeWordIter<'a>;
     fn wrap_to_width<'a>(&'a self, width: usize) -> WordWrapIter<'a>;
     fn wrap_to_width_offset<'a>(&'a self, width: usize, offset: usize) -> WordWrapIter<'a>;
 }
 
 impl WordWrapper for str {
+    fn word_bounds_for_wrapping<'a>(&'a self) -> UnicodeWordIter<'a> {
+        UnicodeWordIter {
+            s: self,
+            iter: self.split_word_bound_indices().peekable(),
+        }
+    }
+
     fn wrap_to_width_offset<'a>(&'a self, width: usize, offset: usize) -> WordWrapIter<'a> {
         WordWrapIter {
             s: self,
@@ -332,7 +368,7 @@ impl<'a> Iterator for WordWrapIter<'a> {
         }
 
         // for each word in the remaining input
-        for (i, word) in &mut self.s[start..].split_word_bound_indices() {
+        for (i, word) in self.s[start..].word_bounds_for_wrapping() {
             let next_pos = start + i;
             let word_graphemes = count_graphemes(word);
 
@@ -362,21 +398,14 @@ impl<'a> Iterator for WordWrapIter<'a> {
 
                 // first eat all of the trailing whitepace
                 let end = next_pos;
-                let mut next_pos = next_pos;
-                let mut ate_it_all = false;
-                for (i, w) in &mut self.s[end..].split_word_bound_indices() {
-                    if !w.chars().all(char::is_whitespace) || word == "\n" {
-                        next_pos = end + i;
-                        ate_it_all = false;
-                        break;
-                    }
-                    ate_it_all = true; // maybe
+                let next_pos = if let Some((i, _)) = self.s[end..].split_word_bound_indices()
+                        .find(|(_, w)| !w.chars().all(char::is_whitespace) || w == &"\n")
+                {
+                    end + i
                 }
-
-                // all the rest must've been whitespace
-                if ate_it_all {
-                    next_pos = self.s.len();
-                }
+                else {
+                    self.s.len()
+                };
 
                 // return the accumulated line
                 self.pos = next_pos;
