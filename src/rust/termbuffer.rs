@@ -35,6 +35,7 @@ use std::ops::Range;
 use std::iter::{Enumerate, Peekable};
 use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
 use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
+use crossterm::event;
 use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
 #[derive(Debug, Copy, Clone)]
@@ -106,6 +107,16 @@ impl TermBuffer {
         stdout().flush().unwrap_or(());
     }
 
+    /// Erase from the specified location to the end of line
+    fn erase_line_to_end_at(&mut self, x: u16, y: u16) {
+        self.rows[self.first_row as usize + y as usize].truncate_at(x);
+        let spaces = style(" ".repeat((self.area.width - x) as usize));
+        queue!(stdout(),
+            cursor::MoveTo(x, y),
+            Print(&spaces),
+        ).unwrap_or(());
+    }
+
     /// Redraw the entire area covered by this TermBuffer
     pub fn refresh(&self) {
         let mut stdout = stdout();
@@ -132,6 +143,7 @@ impl TermBuffer {
         }
         stdout.flush().unwrap_or(());
     }
+
 }
 
 #[derive(Debug)]
@@ -139,6 +151,8 @@ impl TermBuffer {
 pub struct WrapBuffer {
     termbuf: TermBuffer, // wrapped, display ready rows
     lines: Vec<Row>,     // unwrapped, newline terminated lines
+    more_context: u16,
+    more_lines: u16,
 }
 
 impl WrapBuffer {
@@ -146,6 +160,8 @@ impl WrapBuffer {
         WrapBuffer {
             termbuf: TermBuffer::new(area),
             lines: Vec::new(),
+            more_context: 1,
+            more_lines: 0,
         }
     }
 
@@ -183,6 +199,28 @@ impl WrapBuffer {
         if let Err(_) = execute!(stdout(), terminal::ScrollUp(1)) {
             self.termbuf.refresh();
         }
+
+        if self.more_context <= self.termbuf.area.height {
+            self.more_lines += 1;
+            if self.more_lines + self.more_context > self.termbuf.area.height {
+                self.more_lines = 0;
+                self.termbuf.print_at(0, self.termbuf.area.height - 1, "[more]", ContentStyle::new());
+                self.wait_for_key();
+                self.termbuf.erase_line_to_end_at(0, self.termbuf.area.height - 1);
+            }
+        }
+    }
+
+    fn wait_for_key(&self) {
+        terminal::enable_raw_mode().unwrap_or(());
+        loop {
+            match event::read().unwrap() {
+                event::Event::Key(_) => break,
+                event::Event::Mouse(_) => break,
+                _ => continue,
+            }
+        }
+        terminal::disable_raw_mode().unwrap_or(());
     }
 
     fn wrap_append(&mut self, s: &str, style: &ContentStyle) {
@@ -255,6 +293,22 @@ impl WrapBuffer {
 
     pub fn refresh(&mut self) {
         self.termbuf.refresh();
+    }
+
+    /// Set more prompt parameters
+    ///
+    /// When the number of wrapped lines printed is nearly equal to the 
+    /// screen height (with room for "context" and the "[more]" prompt),
+    /// the print function will prompt and wait for a key
+    pub fn set_more_prompt(&mut self, context_lines: u16) {
+        self.more_context = context_lines;
+    }
+
+    /// Reset [more] line counter
+    ///
+    /// See set_more_prompt for more info
+    pub fn reset_more_counter(&mut self) {
+        self.more_lines = 0;
     }
 }
 
@@ -554,34 +608,39 @@ impl Row {
         self.runs = new_runs;
     }
 
+    fn find_grapheme_index(&self, grapheme_index: u16) -> (usize, usize) {
+        let mut count = 0;
+        let mut iter = self.text.grapheme_indices(true);
+
+        // count up until we find grapheme_index
+        loop {
+            if let Some((pos, _grapheme)) = iter.next() {
+                if count >= grapheme_index {
+                    break (pos, count.into());
+                }
+                count += 1;
+            }
+            else {
+                let pad = grapheme_index - count;
+                break (self.text.len() + pad as usize, pad.into());
+            }
+        }
+    }
+
     fn overwrite_at(&mut self, grapheme_index: u16, s: &str, style: &ContentStyle) {
         let s_len = count_graphemes(s);
         if s_len == 0 {
             return;
         }
 
-        let mut iter = self.text.grapheme_indices(true);
-        let mut count = 0;
-        let mut pad = 0;
-
         // count up until we find grapheme_index
-        let start = loop {
-            if let Some((pos, _grapheme)) = iter.next() {
-                if count >= grapheme_index {
-                    break pos;
-                }
-                count += 1;
-            }
-            else {
-                pad = grapheme_index - count;
-                break self.text.len() + pad as usize;
-            }
-        };
+        let (start, pad) = self.find_grapheme_index(grapheme_index);
+        let mut iter = self.text[start..].grapheme_indices(true);
 
-        count = s_len as u16;
+        let mut count = s_len as u16;
         // count down until we've depleted s_len
         let end = loop {
-            if let Some((pos, _grapheme)) = iter.next() {
+            if let Some((pos, _)) = iter.next() {
                 count -= 1;
                 if count <= 0 {
                     break pos;
@@ -596,6 +655,11 @@ impl Row {
         self.text.push_str(&" ".repeat(pad.into()));
         self.text.replace_range(start..end, &s);
         self.apply_style(start, start + s.len(), style);
+    }
+
+    fn truncate_at(&mut self, grapheme_index: u16) {
+        let (start, _) = self.find_grapheme_index(grapheme_index);
+        self.text = self.text[0..start].to_string();
     }
 
     fn append(&mut self, s: &str, style: &ContentStyle) {
