@@ -6,7 +6,6 @@ use std::io::{stdout, Write};
 
 use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::{event, event::Event};
 use regex::Regex;
 use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
@@ -52,6 +51,7 @@ impl TerminalUI {
             let margin = if w > width { (w - width) / 2 } else { 0 }; // round to equal margins
             width = w - margin * 2;
             height = h;
+            Self::print_raw(&format!("\x1B[{};{}r", 2, h));
             Rect {
                 x: margin,
                 y: 1,
@@ -69,11 +69,6 @@ impl TerminalUI {
             }
         };
 
-        if isatty {
-            // intentionally ignore failure
-            let _ = execute!(stdout(), EnterAlternateScreen);
-        }
-
         Box::new(TerminalUI {
             isatty: isatty,
             height: height,
@@ -87,7 +82,7 @@ impl TerminalUI {
         })
     }
 
-    fn print_raw(&self, raw: &str) {
+    fn print_raw(raw: &str) {
         print!("{}", raw);
         io::stdout().flush().unwrap();
     }
@@ -108,7 +103,7 @@ impl Drop for TerminalUI {
                     _ => continue,
                 }
             }
-            execute!(stdout(), LeaveAlternateScreen).unwrap_or(());
+            Self::print_raw(&format!("\x1B[r"));
         }
     }
 }
@@ -121,12 +116,13 @@ impl UI for TerminalUI {
     fn clear(&self) {
         if self.is_term() {
             execute!(stdout(), terminal::Clear(ClearType::All)).unwrap();
+            Self::print_raw(&format!("\x1B[{};{}r", self.window.buffer.area.height + 1, self.height));
         }
     }
 
     fn print(&mut self, text: &str) {
         if !self.is_term() {
-            self.print_raw(text);
+            Self::print_raw(text);
             return;
         }
 
@@ -143,6 +139,24 @@ impl UI for TerminalUI {
         }
         else {
             self.print(object);
+        }
+    }
+
+    fn split_window(&mut self, height: u16) {
+        if self.is_term() {
+            self.window.buffer.resize(Rect {
+                x: 0, y:0,
+                width: self.width,
+                height: height,
+            }, false);
+            self.buffer.resize(Rect {
+                x: 0, y: height,
+                width: self.width,
+                height: self.height - height,
+            }, true);
+            Self::print_raw(&format!("\x1B[{};{}r", height + 1, self.height));
+            self.window.buffer.refresh();
+            self.buffer.refresh();
         }
     }
 
@@ -174,6 +188,13 @@ impl UI for TerminalUI {
             .to_string();
 
         if self.is_term() {
+            // reverse what the enter did at the end of input
+            if let Err(_) = execute!(stdout(), terminal::ScrollDown(1)) {
+                self.buffer.refresh();
+            }
+
+            // write over what the user did again so that our buffers match
+            // for reflow (rewrap)
             self.buffer.print(&format!("{}\n\n", &input));
         }
 

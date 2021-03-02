@@ -146,6 +146,7 @@ impl UI for WebUI {
 
     fn clear(&self) {}
     fn reset(&self) {}
+    fn split_window(&mut self, _: u16) {}
     fn get_user_input(&mut self) -> String {
         unimplemented!();
     }

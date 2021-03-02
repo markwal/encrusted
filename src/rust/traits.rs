@@ -12,6 +12,7 @@ pub trait UI {
     // only used by terminal ui
     fn reset(&self);
     fn get_user_input(&mut self) -> String;
+    fn split_window(&mut self, height: u16);
 
     // only used by web ui
     fn flush(&mut self);
