@@ -2608,7 +2608,7 @@ impl Zmachine {
 
     // VAR_246
     fn do_read_char(&self) -> u16 {
-        return 0; // self.to_zscii(&self.ui.read_char().to_string()) as u16;
+        self.to_zscii(&self.ui.read_char().to_string()) as u16
     }
 
     // VAR_248 do_not() (same as OP1_143)

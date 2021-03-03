@@ -6,7 +6,8 @@ use std::io::{stdout, Write};
 
 use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
-use crossterm::{event, event::Event};
+use crossterm::event;
+use crossterm::event::{Event, KeyEvent, KeyCode};
 use regex::Regex;
 use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
 
@@ -96,6 +97,7 @@ impl Drop for TerminalUI {
     fn drop(&mut self) {
         if self.is_term() {
             println!("[Hit any key to exit.]");
+            terminal::enable_raw_mode().unwrap_or(());
             loop {
                 match event::read().unwrap() {
                     Event::Key(_) => break,
@@ -103,6 +105,7 @@ impl Drop for TerminalUI {
                     _ => continue,
                 }
             }
+            terminal::disable_raw_mode().unwrap_or(());
             Self::print_raw(&format!("\x1B[r"));
         }
     }
@@ -199,6 +202,19 @@ impl UI for TerminalUI {
         }
 
         input
+    }
+
+    fn read_char(&self) -> char {
+        terminal::enable_raw_mode().unwrap_or(());
+        let c = loop {
+            if let Ok(Event::Key(KeyEvent { code: KeyCode::Char(c), ..  })) = event::read()
+            {
+                break c;
+            }
+        };
+        terminal::disable_raw_mode().unwrap_or(());
+
+        c
     }
 
     fn reset(&self) {

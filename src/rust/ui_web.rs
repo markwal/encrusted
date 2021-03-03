@@ -150,4 +150,7 @@ impl UI for WebUI {
     fn get_user_input(&mut self) -> String {
         unimplemented!();
     }
+    fn read_char(&self) -> char {
+        unimplemented!();
+    }
 }
