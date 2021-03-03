@@ -166,6 +166,13 @@ impl WrapBuffer {
         self.print_style(s, &ContentStyle::new());
     }
 
+    pub fn scroll_up(&mut self) {
+        self.termbuf.first_row += 1;
+        if let Err(_) = execute!(stdout(), terminal::ScrollUp(1)) {
+            self.termbuf.refresh();
+        }
+    }
+
     fn wrap_append(&mut self, s: &str, style: &ContentStyle) {
         let mut width_row = 0;
 
@@ -176,21 +183,14 @@ impl WrapBuffer {
         let mut scroll_up = false;
         for (_, row_text) in s.wrap_to_width_offset(self.termbuf.area.width as usize, width_row) {
             if scroll_up || row_text.len() == 0 {
-                self.termbuf.first_row += 1;
-                let (_, rows) = terminal::size().expect("failed to retrieve terminal size");
-                if let Err(_) = execute!(stdout(), cursor::MoveTo(0, rows), Print("\n")) {
-                    // refresh
-                }
-                /*
-                // self.termbuf.refresh();
-                if let Err(_) = execute!(stdout(), terminal::ScrollUp(1)) {
-                    self.termbuf.refresh();
-                }
-                */
+                self.scroll_up();
             }
-            scroll_up = true;
             self.termbuf.print_at(width_row as u16, self.termbuf.area.height - 1, row_text, *style);
+            if row_text.is_empty() && scroll_up {
+                self.scroll_up();
+            }
             width_row = 0;
+            scroll_up = true;
         }
     }
 
