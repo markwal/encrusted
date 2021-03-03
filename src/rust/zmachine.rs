@@ -376,6 +376,8 @@ impl Zmachine {
         // read into dictionary & word separators
         zvm.populate_dictionary();
 
+        zvm.set_initial_pc();
+
         zvm
     }
 
@@ -465,16 +467,18 @@ impl Zmachine {
     }
 
     fn unpack_routine_addr(&self, addr: u16) -> usize {
-        match self.unpack(addr) {
-            x @ 6..=7 => x + self.routine_offset * 8,
-            x => x,
+        let addr = self.unpack(addr);
+        match self.version {
+            6..=7 => addr + self.routine_offset * 8,
+            _ => addr,
         }
     }
 
     fn unpack_print_paddr(&self, addr: u16) -> usize {
-        match self.unpack(addr) {
-            x @ 6..=7 => x + self.string_offset * 8,
-            x => x,
+        let addr = self.unpack(addr);
+        match self.version {
+            6..=7 => addr + self.string_offset * 8,
+            _ => addr,
         }
     }
 
@@ -1713,6 +1717,27 @@ impl Zmachine {
         }
     }
 
+    fn set_initial_pc(&mut self) {
+        self.pc = self.initial_pc;
+        self.restart_header();
+        if self.version == 6 {
+            // version 6 has a packed address in initial_pc and
+            // the interpreter is supposed to "call" it, it's illegal
+            // for the game to return from "main"
+            let instr = Instruction {
+                addr: 0,
+                opcode: Opcode::OP1_136,
+                name: Instruction::name(Opcode::OP1_136, self.version),
+                operands: Vec::new(),
+                store: None,
+                branch: None,
+                text: None,
+                next: 0,
+            };
+            self.do_call(&instr, self.pc as u16, &[]);
+        }
+    }
+
     fn is_debug_command(&self, input: &str) -> bool {
         if !input.starts_with('$') {
             return false;
@@ -2334,11 +2359,10 @@ impl Zmachine {
 
     // OP0_183
     fn do_restart(&mut self) {
-        self.pc = self.initial_pc;
         self.frames.clear();
         self.frames.push(Frame::empty());
         self.memory.write(0, self.original_dynamic.as_slice());
-        self.restart_header();
+        self.set_initial_pc();
     }
 
     // OP0_184
@@ -2584,8 +2608,7 @@ impl Zmachine {
 
     // VAR_246
     fn do_read_char(&self) -> u16 {
-        // TODO to_zscii
-        return 0;
+        return 0; // self.to_zscii(&self.ui.read_char().to_string()) as u16;
     }
 
     // VAR_248 do_not() (same as OP1_143)
