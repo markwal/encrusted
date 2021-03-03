@@ -3,6 +3,7 @@
 use std::boxed::Box;
 use std::io;
 use std::io::{stdout, Write};
+use std::process;
 
 use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
@@ -213,6 +214,10 @@ impl UI for TerminalUI {
             }
         };
         terminal::disable_raw_mode().unwrap_or(());
+
+        if c == '\u{3}' {
+            process::exit(1);
+        }
 
         c
     }
