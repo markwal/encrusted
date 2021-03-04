@@ -661,19 +661,28 @@ impl Zmachine {
         zstring
     }
 
+    fn lookup_unicode_alphabet(&self, zchar: u32) -> Option<&str> {
+        // TODO: also skip if story_id == BEYOND_ZORK
+        if self.version >= 5 && zchar >= 0x9b {
+            let zchar = zchar - 0x9b;
+            if (zchar as usize) < self.unicode_alphabet.len() {
+                Some(&self.unicode_alphabet[zchar as usize])
+            }
+            else {
+                Some(&"?")
+            }
+        }
+        else {
+            None
+        }
+    }
+
     fn from_zscii(&self, ialphabet: usize, zchar: usize) -> &str {
         let letter_string = &self.alphabet[ialphabet][zchar];
         let letter = letter_string.chars().next().unwrap_or(0 as char) as u32;
 
-        // TODO: also skip if story_id == BEYOND_ZORK
-        if self.version >= 5 && letter >= 0x9b {
-            let letter = letter - 0x9b;
-            if (letter as usize) < self.unicode_alphabet.len() {
-                &self.unicode_alphabet[letter as usize]
-            }
-            else {
-                &"?"
-            }
+        if let Some(unicode) = self.lookup_unicode_alphabet(letter) {
+            unicode
         }
         else {
             letter_string
@@ -2524,7 +2533,13 @@ impl Zmachine {
 
     // VAR_229
     fn do_print_char(&mut self, chr: u16) {
-        self.print(&(chr as u8 as char).to_string());
+        let s = if let Some(unicode) = self.lookup_unicode_alphabet(chr as u32) {
+            unicode.to_string()
+        }
+        else {
+            (chr as u8 as char).to_string()
+        };
+        self.print(&s);
     }
 
     // VAR_230
@@ -2607,8 +2622,9 @@ impl Zmachine {
     }
 
     // VAR_246
-    fn do_read_char(&self) -> u16 {
-        self.to_zscii(&self.ui.read_char().to_string()) as u16
+    fn do_read_char(&mut self) -> u16 {
+        let c = self.ui.read_char();
+        self.to_zscii(&c.to_string()) as u16
     }
 
     // VAR_248 do_not() (same as OP1_143)
