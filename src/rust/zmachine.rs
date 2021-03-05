@@ -2576,33 +2576,32 @@ impl Zmachine {
 
     // VAR_234 - set the height of the top window
     fn do_split_window(&mut self, height: u16) {
-        self.ui.debug(&format!("split_window: height: {}", height));
+        self.ui.split_window(height);
     }
 
     // VAR_235 - set current window
     fn do_set_window(&mut self, window: u16) {
-        self.ui.debug(&format!("set_window: window: {}", window));
+        self.ui.debug(&format!("set_window: window: {}\n", window));
     }
 
     // VAR_237
     fn do_erase_window(&mut self, signed: u16) {
-        self.ui.debug(&format!("erase_window: window: {}", &signed));
         self.ui.erase_window(signed as i16);
     }
 
     // VAR_239 - set cursor position for indicated window
     fn do_set_cursor(&mut self, window: u16, x: u16, y: u16) {
-        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}", window, x, y));
+        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}\n", window, x, y));
     }
 
     // VAR_240 - get current cursor position for indicated window
     fn do_get_cursor(&mut self, window: u16) {
-        self.ui.debug(&format!("get_cursor: window: {}", window));
+        self.ui.debug(&format!("get_cursor: window: {}\n", window));
     }
 
     // VAR_241
     fn do_set_text_style(&mut self, style: u16) {
-        self.ui.debug(&format!("set_text_style: style: {}", style));
+        self.ui.debug(&format!("set_text_style: style: {}\n", style));
     }
 
     // VAR_243

@@ -235,16 +235,39 @@ impl UI for TerminalUI {
         }
     }
 
+    fn erase_window(&mut self, window: i16) {
+        match window {
+            -2 => {
+                self.buffer.clear();
+                self.window.buffer.clear();
+            },
+            -1 => {
+                self.split_window(0);
+                self.clear();
+            },
+            0 => {
+                self.buffer.clear();
+            },
+            1 => {
+                self.window.buffer.clear();
+            },
+            _ => {
+                self.debug(&format!("erase_window unknown window: {}\n", window));
+            },
+        }
+    }
+
     fn split_window(&mut self, height: u16) {
         if self.is_term() {
+            let area = self.window.buffer.area;
             self.window.buffer.resize(Rect {
-                x: 0, y:0,
-                width: self.width,
+                x: area.x, y:0,
+                width: area.width,
                 height: height,
             }, false);
             self.buffer.resize(Rect {
-                x: 0, y: height,
-                width: self.width,
+                x: area.x, y: height,
+                width: area.width,
                 height: self.height - height,
             }, true);
             Self::print_raw(&format!("\x1B[{};{}r", height + 1, self.height));
@@ -318,7 +341,6 @@ impl UI for TerminalUI {
     }
 
     // unimplemented, only used in web ui
-    fn erase_window(&mut self, _window: i16) {}
     fn flush(&mut self) {}
     fn message(&self, _mtype: &str, _msg: &str) {}
 }

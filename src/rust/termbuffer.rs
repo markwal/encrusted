@@ -64,6 +64,13 @@ impl TermBuffer {
         }
     }
 
+    /// Clear the buffer
+    pub fn clear(&mut self) {
+        self.first_row = 0;
+        self.rows = Vec::new();
+        self.refresh();
+    }
+
     /// Change the location and/or extent of this TermBuffer on the terminal
     /// screen.
     ///
@@ -140,6 +147,11 @@ impl WrapBuffer {
             termbuf: TermBuffer::new(area),
             lines: Vec::new(),
         }
+    }
+
+    pub fn clear(&mut self) {
+        self.lines = Vec::new();
+        self.termbuf.clear();
     }
 
     fn last_line_terminated(&self) -> bool {
