@@ -90,14 +90,14 @@ impl TermBuffer {
     }
 
     /// Print styled text at a particular place within the term buffer area
-    pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: ContentStyle) {
+    pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: ContentStyle) -> u16 {
         let irow = self.first_row as usize + y as usize;
         if irow as usize >= self.rows.len() {
             for _ in self.rows.len()..(irow + 1) {
                 self.rows.push(Row::new());
             }
         }
-        self.rows[irow].overwrite_at(x, &s, &style);
+        let x_ret = self.rows[irow].overwrite_at(x, &s, &style);
 
         // ignore output errors
         queue!(stdout(),
@@ -105,6 +105,8 @@ impl TermBuffer {
             Print(style.apply(s))
         ).unwrap_or(());
         stdout().flush().unwrap_or(());
+
+        return x_ret;
     }
 
     /// Erase from the specified location to the end of line
@@ -112,9 +114,10 @@ impl TermBuffer {
         self.rows[self.first_row as usize + y as usize].truncate_at(x);
         let spaces = style(" ".repeat((self.area.width - x) as usize));
         queue!(stdout(),
-            cursor::MoveTo(x, y),
+            cursor::MoveTo(self.area.x + x, self.area.y + y),
             Print(&spaces),
         ).unwrap_or(());
+        stdout().flush().unwrap_or(());
     }
 
     /// Redraw the entire area covered by this TermBuffer
@@ -627,27 +630,32 @@ impl Row {
         }
     }
 
-    fn overwrite_at(&mut self, grapheme_index: u16, s: &str, style: &ContentStyle) {
+    fn overwrite_at(&mut self, grapheme_index: u16, s: &str, style: &ContentStyle) -> u16 {
         let s_len = count_graphemes(s);
         if s_len == 0 {
-            return;
+            return grapheme_index;
         }
 
         // count up until we find grapheme_index
         let (start, pad) = self.find_grapheme_index(grapheme_index);
-        let mut iter = self.text[start..].grapheme_indices(true);
 
-        let mut count = s_len as u16;
         // count down until we've depleted s_len
-        let end = loop {
-            if let Some((pos, _)) = iter.next() {
-                count -= 1;
-                if count <= 0 {
-                    break pos;
+        let end = if start >= self.text.len() {
+            start
+        }
+        else {
+            let mut iter = self.text[start..].grapheme_indices(true);
+            let mut count = s_len as u16;
+            loop {
+                if let Some((pos, _)) = iter.next() {
+                    count -= 1;
+                    if count <= 0 {
+                        break start + pos;
+                    }
                 }
-            }
-            else {
-                break self.text.len() + pad as usize;
+                else {
+                    break self.text.len() + pad as usize;
+                }
             }
         };
 
@@ -655,6 +663,7 @@ impl Row {
         self.text.push_str(&" ".repeat(pad.into()));
         self.text.replace_range(start..end, &s);
         self.apply_style(start, start + s.len(), style);
+        return grapheme_index + s_len as u16;
     }
 
     fn truncate_at(&mut self, grapheme_index: u16) {

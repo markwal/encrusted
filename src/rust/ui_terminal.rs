@@ -9,7 +9,9 @@ use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
 use crossterm::event;
 use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
+use bitflags::bitflags;
 use regex::Regex;
+
 use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
 
 use traits::UI;
@@ -27,6 +29,8 @@ pub struct TerminalUI {
     pub width: u16,
     buffer: WrapBuffer,
     window: Window,
+    zwindow: u16,
+    style: ContentStyle,
 }
 
 #[derive(Debug)]
@@ -39,63 +43,83 @@ struct Point {
 struct Window {
     buffer: TermBuffer,
     cursor: Point,
-    style: ContentStyle,
 }
 
-// from frotz
-const ZC_BAD: char = '\u{0000}';
-const ZC_NEW_STYLE: char = '\u{0001}';
-const ZC_NEW_FONT: char = '\u{0002}';
-const ZC_BACKSPACE: char = '\u{0008}';
-const ZC_INDENT: char = '\u{0009}';
-const ZC_GAP: char = '\u{000b}';
-const ZC_RETURN: char = '\u{000d}';
-const ZC_TIME_OUT: char = '\u{0018}';
-const ZC_ESCAPE: char = '\u{001b}';
-const ZC_DEL_WORD: char = '\u{001c}';
-const ZC_WORD_RIGHT: char = '\u{001d}';
-const ZC_WORD_LEFT: char = '\u{001e}';
-const ZC_DEL_TO_BOL: char = '\u{001f}';
-const ZC_ASCII_MIN: u8 = 0x20;
-const ZC_ASCII_MAX: u8 = 0x7e;
-const ZC_DEL: char = '\u{007f}';
-const ZC_ARROW_MIN: u8 = 0x81;
-const ZC_ARROW_UP: char = '\u{0081}';
-const ZC_ARROW_DOWN: char = '\u{0082}';
-const ZC_ARROW_LEFT: char = '\u{0083}';
-const ZC_ARROW_RIGHT: char = '\u{0084}';
-const ZC_ARROW_MAX: u8 = 0x84;
-const ZC_FKEY_MIN: u8 = 0x85;
-const ZC_FKEY_F1: char = '\u{0085}';
-const ZC_FKEY_F2: char = '\u{0086}';
-const ZC_FKEY_F3: char = '\u{0087}';
-const ZC_FKEY_F4: char = '\u{0088}';
-const ZC_FKEY_F5: char = '\u{0089}';
-const ZC_FKEY_F6: char = '\u{008a}';
-const ZC_FKEY_F7: char = '\u{008b}';
-const ZC_FKEY_F8: char = '\u{008c}';
-const ZC_FKEY_F9: char = '\u{008d}';
-const ZC_FKEY_F10: char = '\u{008e}';
-const ZC_FKEY_F11: char = '\u{008f}';
-const ZC_FKEY_F12: char = '\u{0090}';
-const ZC_FKEY_MAX: u8 = 0x90;
-const ZC_NUMPAD_MIN: u8 = 0x91;
-const ZC_NUMPAD_0: char = '\u{0091}';
-const ZC_NUMPAD_1: char = '\u{0092}';
-const ZC_NUMPAD_2: char = '\u{0093}';
-const ZC_NUMPAD_3: char = '\u{0094}';
-const ZC_NUMPAD_4: char = '\u{0095}';
-const ZC_NUMPAD_5: char = '\u{0096}';
-const ZC_NUMPAD_6: char = '\u{0097}';
-const ZC_NUMPAD_7: char = '\u{0098}';
-const ZC_NUMPAD_8: char = '\u{0099}';
-const ZC_NUMPAD_9: char = '\u{009a}';
-const ZC_NUMPAD_MAX: u8 = 0x9a;
-const ZC_SINGLE_CLICK: char = '\u{009b}';
-const ZC_DOUBLE_CLICK: char = '\u{009c}';
-const ZC_MENU_CLICK: char = '\u{009d}';
-const ZC_LATIN1_MIN: char = '\u{00a0}';
-const ZC_LATIN1_MAX: char = '\u{00ff}';
+mod zscii {
+    // from frotz
+    pub const BAD: char = '\u{0000}';
+    pub const NEW_STYLE: char = '\u{0001}';
+    pub const NEW_FONT: char = '\u{0002}';
+    pub const BACKSPACE: char = '\u{0008}';
+    pub const INDENT: char = '\u{0009}';
+    pub const GAP: char = '\u{000b}';
+    pub const RETURN: char = '\u{000d}';
+    pub const TIME_OUT: char = '\u{0018}';
+    pub const ESCAPE: char = '\u{001b}';
+    pub const DEL_WORD: char = '\u{001c}';
+    pub const WORD_RIGHT: char = '\u{001d}';
+    pub const WORD_LEFT: char = '\u{001e}';
+    pub const DEL_TO_BOL: char = '\u{001f}';
+    pub const ASCII_MIN: u8 = 0x20;
+    pub const ASCII_MAX: u8 = 0x7e;
+    pub const DEL: char = '\u{007f}';
+    pub const ARROW_MIN: u8 = 0x81;
+    pub const ARROW_UP: char = '\u{0081}';
+    pub const ARROW_DOWN: char = '\u{0082}';
+    pub const ARROW_LEFT: char = '\u{0083}';
+    pub const ARROW_RIGHT: char = '\u{0084}';
+    pub const ARROW_MAX: u8 = 0x84;
+    pub const FKEY_MIN: u8 = 0x85;
+    pub const FKEY_F1: char = '\u{0085}';
+    pub const FKEY_F2: char = '\u{0086}';
+    pub const FKEY_F3: char = '\u{0087}';
+    pub const FKEY_F4: char = '\u{0088}';
+    pub const FKEY_F5: char = '\u{0089}';
+    pub const FKEY_F6: char = '\u{008a}';
+    pub const FKEY_F7: char = '\u{008b}';
+    pub const FKEY_F8: char = '\u{008c}';
+    pub const FKEY_F9: char = '\u{008d}';
+    pub const FKEY_F10: char = '\u{008e}';
+    pub const FKEY_F11: char = '\u{008f}';
+    pub const FKEY_F12: char = '\u{0090}';
+    pub const FKEY_MAX: u8 = 0x90;
+    pub const NUMPAD_MIN: u8 = 0x91;
+    pub const NUMPAD_0: char = '\u{0091}';
+    pub const NUMPAD_1: char = '\u{0092}';
+    pub const NUMPAD_2: char = '\u{0093}';
+    pub const NUMPAD_3: char = '\u{0094}';
+    pub const NUMPAD_4: char = '\u{0095}';
+    pub const NUMPAD_5: char = '\u{0096}';
+    pub const NUMPAD_6: char = '\u{0097}';
+    pub const NUMPAD_7: char = '\u{0098}';
+    pub const NUMPAD_8: char = '\u{0099}';
+    pub const NUMPAD_9: char = '\u{009a}';
+    pub const NUMPAD_MAX: u8 = 0x9a;
+    pub const SINGLE_CLICK: char = '\u{009b}';
+    pub const DOUBLE_CLICK: char = '\u{009c}';
+    pub const MENU_CLICK: char = '\u{009d}';
+    pub const LATIN1_MIN: char = '\u{00a0}';
+    pub const LATIN1_MAX: char = '\u{00ff}';
+}
+
+bitflags! {
+    #[derive(Default)]
+    struct Zstyle: u16 {
+        const ROMAN = 0;
+        const REVERSE = 1;
+        const BOLDFACE = 2;
+        const EMPHASIS = 4;
+        const FIXED_WIDTH = 8;
+    }
+}
+
+impl Zstyle {
+    fn new(bits: u16) -> Zstyle {
+        let mut zstyle = Zstyle::ROMAN;
+        zstyle.bits = bits;
+        zstyle
+    }
+}
 
 impl TerminalUI {
     pub fn new_with_width(width: u16) -> Box<TerminalUI> {
@@ -134,8 +158,9 @@ impl TerminalUI {
             window: Window {
                 buffer: TermBuffer::new(Rect { x: area.x, y: 0, width: area.width, height: 1 }),
                 cursor: Point { x: 0, y: 0 },
-                style: ContentStyle::new(),
             },
+            zwindow: 0,
+            style: ContentStyle::new(),
         })
     }
 
@@ -155,31 +180,31 @@ impl TerminalUI {
     fn char_from_key_event(key: KeyEvent) -> char {
         match key {
             KeyEvent { code: KeyCode::Char(ch @ 'a'..='z'), modifiers } =>
-                if !(modifiers & KeyModifiers::ALT).is_empty() as bool { ZC_BAD }
+                if !(modifiers & KeyModifiers::ALT).is_empty() as bool { zscii::BAD }
                 else if !(modifiers & KeyModifiers::CONTROL).is_empty() { Self::char_from_ucs2(ch as u16 - 'a' as u16 + 1) }
                 else if !(modifiers & KeyModifiers::SHIFT).is_empty() { ch.to_uppercase().next().unwrap_or('?') }
                 else { ch },
             KeyEvent { code: KeyCode::Char(ch @ 'A'..='Z'), modifiers } =>
-                if !(modifiers & KeyModifiers::ALT).is_empty() as bool { ZC_BAD }
+                if !(modifiers & KeyModifiers::ALT).is_empty() as bool { zscii::BAD }
                 else if !(modifiers & KeyModifiers::CONTROL).is_empty() { Self::char_from_ucs2(ch as u16 - 'A' as u16 + 1) }
                 else { ch },
             KeyEvent { code: KeyCode::Char(ch), modifiers: KeyModifiers::NONE } => { ch },
-            KeyEvent { code: KeyCode::Esc, .. } => { ZC_ESCAPE },
-            KeyEvent { code: KeyCode::Up, .. } => { ZC_ARROW_UP },
-            KeyEvent { code: KeyCode::Down, .. } => { ZC_ARROW_DOWN },
-            KeyEvent { code: KeyCode::Left, .. } => { ZC_ARROW_LEFT },
-            KeyEvent { code: KeyCode::Right, .. } => { ZC_ARROW_RIGHT },
-            KeyEvent { code: KeyCode::Backspace, .. } => { ZC_BACKSPACE },
-            KeyEvent { code: KeyCode::Enter, .. } => { ZC_RETURN },
-            KeyEvent { code: KeyCode::Tab, .. } => { ZC_INDENT },
-            KeyEvent { code: KeyCode::Delete, .. } => { ZC_DEL },
-            KeyEvent { code: KeyCode::F(n), .. } => { Self::char_from_ucs2((ZC_FKEY_MIN + n - 1).into()) },
-            _ => ZC_BAD,
+            KeyEvent { code: KeyCode::Esc, .. } => { zscii::ESCAPE },
+            KeyEvent { code: KeyCode::Up, .. } => { zscii::ARROW_UP },
+            KeyEvent { code: KeyCode::Down, .. } => { zscii::ARROW_DOWN },
+            KeyEvent { code: KeyCode::Left, .. } => { zscii::ARROW_LEFT },
+            KeyEvent { code: KeyCode::Right, .. } => { zscii::ARROW_RIGHT },
+            KeyEvent { code: KeyCode::Backspace, .. } => { zscii::BACKSPACE },
+            KeyEvent { code: KeyCode::Enter, .. } => { zscii::RETURN },
+            KeyEvent { code: KeyCode::Tab, .. } => { zscii::INDENT },
+            KeyEvent { code: KeyCode::Delete, .. } => { zscii::DEL },
+            KeyEvent { code: KeyCode::F(n), .. } => { Self::char_from_ucs2((zscii::FKEY_MIN + n - 1).into()) },
+            _ => zscii::BAD,
         }
     }
 
     fn char_from_mouse_event(_mouse: MouseEvent) -> char {
-        return ZC_BAD;
+        return zscii::BAD;
     }
 }
 
@@ -219,24 +244,77 @@ impl UI for TerminalUI {
             return;
         }
 
-        self.buffer.print(text);
+        if self.zwindow == 0 {
+            self.buffer.print_styled(&self.style.apply(text));
+        }
+        else {
+            self.window.cursor.x = self.window.buffer.print_at(self.window.cursor.x, self.window.cursor.y,
+                text, self.style);
+            if self.window.cursor.x > self.window.buffer.area.width {
+                self.window.cursor.x = self.window.buffer.area.width - 1;
+            }
+        }
     }
 
     fn debug(&mut self, text: &str) {
+        let zwindow = self.zwindow;
+        self.zwindow = 0;
         self.print(text);
+        self.zwindow = zwindow;
     }
 
     fn print_object(&mut self, object: &str) {
-        if self.is_term() {
-            self.buffer.print_styled(&style(object).with(Color::White).attribute(Attribute::Bold));
+        if self.zwindow == 0 && self.is_term() {
+            self.buffer.print_styled(&style(object).with(Color::White).attribute(Attribute::Italic));
         }
         else {
             self.print(object);
         }
     }
 
-    fn erase_window(&mut self, window: i16) {
-        match window {
+    fn set_text_style(&mut self, zstyle: u16) {
+        let zstyle = Zstyle::new(zstyle);
+        let mut style = ContentStyle::new();
+        if !(zstyle & Zstyle::REVERSE).is_empty() {
+            style = style.attribute(Attribute::Reverse);
+        }
+        if !(zstyle & Zstyle::BOLDFACE).is_empty() {
+            style = style.foreground(Color::Red).attribute(Attribute::Bold);
+        }
+        if !(zstyle & Zstyle::EMPHASIS).is_empty() {
+            style = style.attribute(Attribute::Italic);
+        }
+        // ignore FIXED_WIDTH because terminal
+        self.style = style;
+    }
+
+    fn set_cursor(&mut self, _zwindow: i16, x_in: i16, y_in: i16) {
+        if y_in < 0 {
+            // v6 this turns on and off the cursor.  v6 isn't supported
+            // in terminal mode
+            return;
+        }
+
+        let     y = if y_in == 0 { self.window.cursor.y } else { y_in as u16 - 1 };
+        let mut x = if x_in == 0 { self.window.cursor.x } else { x_in as u16 - 1 };
+
+        if x >= self.window.buffer.area.width {
+            x = 1;
+        }
+
+        self.window.cursor = Point {
+            x: x,
+            y: y,
+        };
+    }
+
+    fn get_cursor(&mut self, _zwindow: i16) -> (u16, u16) {
+        // only v6 supports a window param
+        return (self.window.cursor.x + 1, self.window.cursor.y + 1);
+    }
+
+    fn erase_window(&mut self, zwindow: i16) {
+        match zwindow {
             -2 => {
                 self.buffer.clear();
                 self.window.buffer.clear();
@@ -252,7 +330,7 @@ impl UI for TerminalUI {
                 self.window.buffer.clear();
             },
             _ => {
-                self.debug(&format!("erase_window unknown window: {}\n", window));
+                self.debug(&format!("erase_window unknown window: {}\n", zwindow));
             },
         }
     }
@@ -276,6 +354,10 @@ impl UI for TerminalUI {
         }
     }
 
+    fn set_window(&mut self, zwindow: u16) {
+        self.zwindow = zwindow;
+    }
+
     fn set_status_bar(&mut self, left: &str, right: &str) {
         if self.is_term() {
             let width = self.window.buffer.area.width;
@@ -290,6 +372,7 @@ impl UI for TerminalUI {
     }
 
     fn get_user_input(&mut self) -> String {
+        self.buffer.reset_more_counter();
         let mut input = String::new();
         io::stdin()
             .read_line(&mut input)

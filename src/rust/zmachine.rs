@@ -251,7 +251,8 @@ bitflags! {
         const EMPHASIS     = 0x08; /* Interpr supports emphasis style    - V4+ */
         const FIXED        = 0x10; /* Interpr supports fixed width style - V4+ */
         const SOUND        = 0x20; /* Interpr supports sound             - V6  */
-        const TIMEDINPUT   = 0x80; /* Interpr supports timed input       - V4+ */ }
+        const TIMEDINPUT   = 0x80; /* Interpr supports timed input       - V4+ */
+    }
 }
 
 impl fmt::Display for TerpConfig {
@@ -1627,8 +1628,8 @@ impl Zmachine {
             (VAR_237, &[num]) => self.do_erase_window(num),
             (VAR_239, &[y, x, num]) => self.do_set_cursor(num, x, y),
             (VAR_239, &[y, x]) => self.do_set_cursor(1, x, y),
-            (VAR_240, &[num]) => self.do_get_cursor(num),
-            (VAR_240, _) => self.do_get_cursor(1),
+            (VAR_240, &[num, addr]) => self.do_get_cursor(num, addr),
+            (VAR_240, &[addr]) => self.do_get_cursor(1, addr),
             (VAR_241, &[num]) => self.do_set_text_style(num),
             (VAR_243, &[num]) => self.do_output_stream(num, 0, 0),
             (VAR_243, &[num, addr]) => self.do_output_stream(num, addr, 0),
@@ -1674,6 +1675,7 @@ impl Zmachine {
         assert!(self.memory_streams.len() < MAX_MEM_STREAMS,
             "Game exceeded maximum nesting ({})for memory streams.", MAX_MEM_STREAMS);
 
+        self.memory.write_word(addr as usize, 0);
         self.memory_streams.push(MemStream {
             addr: addr,
             wrap_info: if wrap_width > 0 {
@@ -1702,18 +1704,19 @@ impl Zmachine {
         else {
             // TODO v6 width stuff
             let stream = self.memory_streams.last().unwrap();
-            let mut count = 0;
+            let mut count = self.memory.read_word(stream.addr as usize);
             for ch in text.chars() {
                 let zchar = self.to_zscii(&ch.to_string());
+                self.memory.write_byte((stream.addr + 2 + count) as usize, zchar);
                 count += 1;
-                self.memory.write_byte((stream.addr + count) as usize, zchar);
             }
-            assert!(count < 256, "maximum memory stream size exceeded");
-            self.memory.write_byte(stream.addr as usize, count as u8);
+            self.memory.write_word(stream.addr as usize, count as u16);
 
-            let dump = self.memory.read(stream.addr as usize, count as usize + 1);
+            /*
+            let dump = self.memory.read(stream.addr as usize, count as usize + 2);
             self.ui.debug(&format!("\nmem_stream: {}\n",
                 &dump.iter().map(|b| format!("{:02X} ", b)).collect::<String>()));
+            */
         }
     }
 
@@ -2001,7 +2004,6 @@ impl Zmachine {
     #[allow(dead_code)]
     pub fn set_terp_caps(&mut self, v: serde_json::Value) {
         deserialize_into_terp_caps(v, &mut self.terp_caps).unwrap();
-        self.ui.debug(&format!("terp header width: {} height: {}\n", self.terp_caps.width, self.terp_caps.height));
         self.restart_header();
     }
 }
@@ -2580,8 +2582,8 @@ impl Zmachine {
     }
 
     // VAR_235 - set current window
-    fn do_set_window(&mut self, window: u16) {
-        self.ui.debug(&format!("set_window: window: {}\n", window));
+    fn do_set_window(&mut self, zwindow: u16) {
+        self.ui.set_window(zwindow);
     }
 
     // VAR_237
@@ -2591,17 +2593,19 @@ impl Zmachine {
 
     // VAR_239 - set cursor position for indicated window
     fn do_set_cursor(&mut self, window: u16, x: u16, y: u16) {
-        self.ui.debug(&format!("set_cursor: window: {} x: {} y: {}\n", window, x, y));
+        self.ui.set_cursor(window as i16, x as i16, y as i16);
     }
 
     // VAR_240 - get current cursor position for indicated window
-    fn do_get_cursor(&mut self, window: u16) {
-        self.ui.debug(&format!("get_cursor: window: {}\n", window));
+    fn do_get_cursor(&mut self, window: u16, addr: u16) {
+        let (x, y) = self.ui.get_cursor(window as i16);
+        self.memory.write_word(addr as usize, y);
+        self.memory.write_word(addr as usize + 2, x);
     }
 
     // VAR_241
     fn do_set_text_style(&mut self, style: u16) {
-        self.ui.debug(&format!("set_text_style: style: {}\n", style));
+        self.ui.set_text_style(style);
     }
 
     // VAR_243
