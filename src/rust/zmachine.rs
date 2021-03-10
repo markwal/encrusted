@@ -246,7 +246,7 @@ bitflags! {
 
         /* V4+ from the interpreter to the game */
         const COLOUR       = 0x01; /* Interpr supports colour            - V5+ */
-        const PICTURES     = 0x02; /* Interpr supports pictures	       - V6  */
+        const PICTURES     = 0x02; /* Interpr supports pictures          - V6  */
         const BOLDFACE     = 0x04; /* Interpr supports boldface style    - V4+ */
         const EMPHASIS     = 0x08; /* Interpr supports emphasis style    - V4+ */
         const FIXED        = 0x10; /* Interpr supports fixed width style - V4+ */
@@ -723,7 +723,7 @@ impl Zmachine {
 
     pub fn restart_header(&mut self) {
         // config
-        let mut config: TerpConfig = Default::default();
+        let mut config: TerpConfig = TerpConfig::BOLDFACE | TerpConfig::EMPHASIS | TerpConfig::FIXED;
         if self.version == 3 {
             if self.terp_caps.split_screen {
                 config = config | TerpConfig::SPLITSCREEN;
@@ -738,7 +738,7 @@ impl Zmachine {
         self.memory.write_byte(HeaderOffset::CONFIG as usize,
             self.memory.read_byte(HeaderOffset::CONFIG as usize) | config.bits);
 
-//        FUTURE self.memory.write_byte(H_FLAGS, h_flags);
+//       TODO self.memory.write_byte(H_FLAGS, h_flags);
 //
         let screen_cols = self.terp_caps.width / self.terp_caps.font_width;
         let screen_cols = if screen_cols > 120 { 120 } else { screen_cols };
