@@ -31,7 +31,6 @@ mod zmachine;
 mod panic_hook;
 
 use options::Options;
-use traits::UI;
 use ui_web::WebUI;
 use zmachine::Zmachine;
 

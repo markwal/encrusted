@@ -31,6 +31,7 @@ mod quetzal;
 mod traits;
 mod ui_terminal;
 mod zmachine;
+mod chgrid;
 mod termbuffer;
 
 use options::Options;
@@ -90,7 +91,7 @@ fn main() {
         process::exit(1);
     }
 
-    let ui = TerminalUI::new_with_width(width);
+    let ui = TerminalUI::new(version, width);
     width = ui.width;
     let height = ui.height;
 

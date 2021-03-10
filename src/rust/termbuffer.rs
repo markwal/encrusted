@@ -27,30 +27,22 @@ SOFTWARE.
 //! Define rectangular regions of the terminal screen (TermBuffer) that contain the text, colors
 //! and attributes to allow that portion of the screen to be redrawn, scrolled, partially
 //! rewritten, etc.
-#![allow(dead_code)]
 
 use std::io::{Write, stdout};
 use std::cmp;
-use std::ops::Range;
-use std::iter::{Enumerate, Peekable};
+use std::iter::Peekable;
 use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
 use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
 use crossterm::event;
 use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
-#[derive(Debug, Copy, Clone)]
-pub struct Rect {
-    pub x: u16,
-    pub y: u16,
-    pub width: u16,
-    pub height: u16,
-}
+use chgrid::{Rect, Row, count_graphemes};
 
 #[derive(Debug)]
 /// Terminal UI text and style buffer
 pub struct TermBuffer {
     pub area: Rect,
-    rows: Vec<Row>,
+    rows: Vec<Row<ContentStyle>>,
     first_row: u32,
 }
 
@@ -129,8 +121,8 @@ impl TermBuffer {
         }
         for row in &self.rows[self.first_row as usize..] {
             queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
-            for s in row.iter_width(self.area.width) {
-                queue!(stdout, Print(s)).unwrap_or(());
+            for (text, style) in row.iter_width(self.area.width) {
+                queue!(stdout, Print(&style.apply(&text))).unwrap_or(());
             }
             let l = row.text.len();
             if l < self.area.width as usize {
@@ -146,14 +138,13 @@ impl TermBuffer {
         }
         stdout.flush().unwrap_or(());
     }
-
 }
 
 #[derive(Debug)]
 /// A Terminal UI text buffer that word wraps its contents
 pub struct WrapBuffer {
     termbuf: TermBuffer, // wrapped, display ready rows
-    lines: Vec<Row>,     // unwrapped, newline terminated lines
+    lines: Vec<Row<ContentStyle>>,     // unwrapped, newline terminated lines
     more_context: u16,
     more_lines: u16,
 }
@@ -247,8 +238,10 @@ impl WrapBuffer {
         }
     }
 
+    #[allow(dead_code)]
+    // TODO handle resize
     fn rewrap(&mut self) {
-        let mut rows: Vec<Row> = Vec::new();
+        let mut rows: Vec<Row<ContentStyle>> = Vec::new();
         let mut row = Row::new();
         let width = self.termbuf.area.width as usize;
 
@@ -281,7 +274,7 @@ impl WrapBuffer {
 
         let height = self.termbuf.area.height as usize;
         if rows.len() < height {
-            let mut empty_rows = (0..height - rows.len()).map(|_| { Row::new() }).collect::<Vec<Row>>();
+            let mut empty_rows = (0..height - rows.len()).map(|_| { Row::new() }).collect::<Vec<Row<ContentStyle>>>();
             empty_rows.append(&mut rows);
             rows = empty_rows;
         }
@@ -303,6 +296,7 @@ impl WrapBuffer {
     /// When the number of wrapped lines printed is nearly equal to the 
     /// screen height (with room for "context" and the "[more]" prompt),
     /// the print function will prompt and wait for a key
+    #[allow(dead_code)]
     pub fn set_more_prompt(&mut self, context_lines: u16) {
         self.more_context = context_lines;
     }
@@ -313,74 +307,6 @@ impl WrapBuffer {
     pub fn reset_more_counter(&mut self) {
         self.more_lines = 0;
     }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct Run {
-    start: u16,
-    style: ContentStyle,
-}
-
-#[derive(Debug)]
-struct Row {
-    runs: Vec<Run>,
-    text: String,
-}
-
-struct RowIterRunRanges<'a> {
-    row: &'a Row,
-    cur: usize,
-}
-
-impl<'a> Iterator for RowIterRunRanges<'a> {
-    type Item = Range<usize>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let l = self.row.runs.len();
-        let i = self.cur;
-        if i >= l {
-            return None
-        }
-        let end = if i + 1 >= l { self.row.text.len() } else { self.row.runs[i + 1].start as usize };
-        self.cur += 1;
-        Some(self.row.runs[i].start as usize..end)
-    }
-}
-
-struct RowIter<'a> {
-    row: &'a Row,
-    width: usize,
-    graphemes: usize,
-    iter: Enumerate<RowIterRunRanges<'a>>,
-}
-
-impl<'a> Iterator for RowIter<'a> {
-    type Item = StyledContent<&'a str>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.graphemes >= self.width {
-            return None;
-        }
-
-        if let Some((i, mut r)) = self.iter.next() {
-            let run_text = &self.row.text[r.start..r.end];
-            let mut grapheme_indices = run_text.grapheme_indices(true);
-            if let Some((next, _)) = &mut grapheme_indices.nth((self.width - self.graphemes).into()) {
-                r.end = r.start + *next;
-            }
-
-            let run_text = &self.row.text[r];
-            self.graphemes += count_graphemes(&run_text);
-            Some(self.row.runs[i].style.apply(&run_text))
-        }
-        else {
-            None
-        }
-    }
-}
-
-pub fn count_graphemes(s: &str) -> usize {
-    UnicodeSegmentation::grapheme_indices(s, true).count()
 }
 
 struct UnicodeWordIter<'a> {
@@ -520,166 +446,9 @@ impl<'a> Iterator for WordWrapIter<'a> {
     }
 }
 
-impl Row {
-    fn new() -> Row {
-        let run = Run {
-            start: 0,
-            style: ContentStyle::new(),
-        };
-        Row {
-            runs: vec![run],
-            text: "".to_string(),
-        }
-    }
-
-    fn iter_run_ranges(&self) -> RowIterRunRanges {
-        RowIterRunRanges {
-            row: self,
-            cur: 0,
-        }
-    }
-
-    fn iter_width(&self, width: u16) -> RowIter {
-        RowIter {
-            row: self,
-            iter: self.iter_run_ranges().enumerate(),
-            width: width as usize,
-            graphemes: 0,
-        }
-    }
-
-    fn iter(&self) -> RowIter {
-        self.iter_width(u16::MAX)
-    }
-
-    /// return the run indices that span the indicated start and end 
-    fn run_range(&self, start: usize, end: usize) -> Range<usize> {
-        let mut start_run = 0;
-        for (i, r) in self.iter_run_ranges().enumerate() {
-            if r.contains(&start) {
-                start_run = i;
-            }
-            if r.contains(&end) {
-                return start_run..i;
-            }
-        }
-        start_run..self.runs.len()
-    }
-
-    fn apply_style(&mut self, start: usize, end: usize, style: &ContentStyle) {
-        let mut new_runs: Vec<Run> = Vec::new();
-        let mut pushed_start = false;
-
-        for (i, r) in self.iter_run_ranges().enumerate() {
-            if r.start < start {
-                new_runs.push(self.runs[i]);
-            }
-            else {
-                if !pushed_start {
-                    pushed_start = true;
-                    if i == 0 || self.runs[i - 1].style != *style {
-                        new_runs.push(Run {
-                            start: start as u16,
-                            style: *style,
-                        });
-                    }
-                }
-                if r.contains(&end) && self.runs[i].style != *style {
-                    new_runs.push(Run {
-                        start: end as u16,
-                        style: self.runs[i].style,
-                    });
-                }
-                if r.start > end {
-                    new_runs.push(self.runs[i]);
-                }
-            }
-        }
-        let last_style = &self.runs.last().unwrap().style;
-        if !pushed_start && *last_style != *style {
-            new_runs.push(Run {
-                start: start as u16,
-                style: *style,
-            });
-            if end < self.text.len() {
-                new_runs.push(Run {
-                    start: end as u16,
-                    style: *last_style,
-                });
-            }
-        }
-        self.runs = new_runs;
-    }
-
-    fn find_grapheme_index(&self, grapheme_index: u16) -> (usize, usize) {
-        let mut count = 0;
-        let mut iter = self.text.grapheme_indices(true);
-
-        // count up until we find grapheme_index
-        loop {
-            if let Some((pos, _grapheme)) = iter.next() {
-                if count >= grapheme_index {
-                    break (pos, count.into());
-                }
-                count += 1;
-            }
-            else {
-                let pad = grapheme_index - count;
-                break (self.text.len() + pad as usize, pad.into());
-            }
-        }
-    }
-
-    fn overwrite_at(&mut self, grapheme_index: u16, s: &str, style: &ContentStyle) -> u16 {
-        let s_len = count_graphemes(s);
-        if s_len == 0 {
-            return grapheme_index;
-        }
-
-        // count up until we find grapheme_index
-        let (start, pad) = self.find_grapheme_index(grapheme_index);
-
-        // count down until we've depleted s_len
-        let end = if start >= self.text.len() {
-            start
-        }
-        else {
-            let mut iter = self.text[start..].grapheme_indices(true);
-            let mut count = s_len as u16;
-            loop {
-                if let Some((pos, _)) = iter.next() {
-                    count -= 1;
-                    if count <= 0 {
-                        break start + pos;
-                    }
-                }
-                else {
-                    break self.text.len() + pad as usize;
-                }
-            }
-        };
-
-        // pad out with spaces
-        self.text.push_str(&" ".repeat(pad.into()));
-        self.text.replace_range(start..end, &s);
-        self.apply_style(start, start + s.len(), style);
-        return grapheme_index + s_len as u16;
-    }
-
-    fn truncate_at(&mut self, grapheme_index: u16) {
-        let (start, _) = self.find_grapheme_index(grapheme_index);
-        self.text = self.text[0..start].to_string();
-    }
-
-    fn append(&mut self, s: &str, style: &ContentStyle) {
-        let l = self.text.len();
-        self.text.push_str(s);
-        self.apply_style(l, l + s.len(), style);
-    }
-}
-
+#[allow(dead_code)]
 pub fn test_termbuffer() {
-    let mut row = Row::new();
+    let mut row = Row::<ContentStyle>::new();
     row.overwrite_at(3, "hello", &ContentStyle::new().attribute(Attribute::Bold));
     row.overwrite_at(10, "there", &ContentStyle::new().background(Color::Red).attribute(Attribute::SlowBlink));
     row.overwrite_at(7, "wow", &ContentStyle::new().attribute(Attribute::Underlined));
@@ -699,8 +468,8 @@ pub fn test_termbuffer() {
     println!("");
 
     let mut out = stdout();
-    for s in row.iter() {
-        out.queue(Print(s)).expect("failed to queue terminal command");
+    for (text, style) in row.iter() {
+        out.queue(Print(&style.apply(&text))).expect("failed to queue terminal command");
     }
     out.flush().expect("failed to flush terminal commands");
     println!("");

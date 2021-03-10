@@ -12,7 +12,8 @@ use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
 use bitflags::bitflags;
 use regex::Regex;
 
-use termbuffer::{TermBuffer, WrapBuffer, Rect, count_graphemes};
+use chgrid::{Rect, count_graphemes};
+use termbuffer::{TermBuffer, WrapBuffer};
 
 use traits::UI;
 
@@ -24,6 +25,7 @@ lazy_static! {
 
 #[derive(Debug)]
 pub struct TerminalUI {
+    version: u8,
     isatty: bool,
     pub height: u16,
     pub width: u16,
@@ -122,7 +124,7 @@ impl Zstyle {
 }
 
 impl TerminalUI {
-    pub fn new_with_width(width: u16) -> Box<TerminalUI> {
+    pub fn new(version: u8, width: u16) -> Box<TerminalUI> {
         let mut width = if width == 0 { u16::MAX } else { width };
         let mut height = 25;
         let mut isatty = false;
@@ -151,9 +153,10 @@ impl TerminalUI {
         };
 
         Box::new(TerminalUI {
-            isatty: isatty,
-            height: height,
-            width: width,
+            version,
+            isatty,
+            height,
+            width,
             buffer: WrapBuffer::new(area),
             window: Window {
                 buffer: TermBuffer::new(Rect { x: area.x, y: 0, width: area.width, height: 1 }),
@@ -227,10 +230,6 @@ impl Drop for TerminalUI {
 }
 
 impl UI for TerminalUI {
-    fn new() -> Box<TerminalUI> {
-        Self::new_with_width(55)
-    }
-
     fn clear(&self) {
         if self.is_term() {
             execute!(stdout(), terminal::Clear(ClearType::All)).unwrap();
@@ -295,7 +294,10 @@ impl UI for TerminalUI {
             return;
         }
 
-        let     y = if y_in == 0 { self.window.cursor.y } else { y_in as u16 - 1 };
+        // in v3 mode, the status line takes up row 0
+        let y_adj = if self.version == 3 { 0 } else { 1 };
+
+        let     y = if y_in == 0 { self.window.cursor.y } else { y_in as u16 - y_adj };
         let mut x = if x_in == 0 { self.window.cursor.x } else { x_in as u16 - 1 };
 
         if x >= self.window.buffer.area.width {
@@ -337,7 +339,18 @@ impl UI for TerminalUI {
 
     fn split_window(&mut self, height: u16) {
         if self.is_term() {
+            // v3 the status bar takes up row 0
+            let height = if self.version == 3 { height + 1 } else { height };
             let area = self.window.buffer.area;
+
+            // ensure cursor is still inside the window bounds
+            if self.window.cursor.y >= height {
+                self.window.cursor.y = 1;
+                self.window.cursor.x = 1;
+            }
+
+            // resize the area covered by the text buffers and set
+            // scroll margin
             self.window.buffer.resize(Rect {
                 x: area.x, y:0,
                 width: area.width,
@@ -349,7 +362,14 @@ impl UI for TerminalUI {
                 height: self.height - height,
             }, true);
             Self::print_raw(&format!("\x1B[{};{}r", height + 1, self.height));
-            self.window.buffer.refresh();
+
+            // v3 clears on split
+            if self.version == 3 {
+                self.window.buffer.clear();
+            }
+            else {
+                self.window.buffer.refresh();
+            }
             self.buffer.refresh();
         }
     }

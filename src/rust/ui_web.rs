@@ -21,11 +21,13 @@ pub struct WebUI {
     buffer: Vec<Token>,
 }
 
-impl UI for WebUI {
-    fn new() -> Box<WebUI> {
+impl WebUI {
+    pub fn new() -> Box<WebUI> {
         Box::new(WebUI { buffer: Vec::new() })
     }
+}
 
+impl UI for WebUI {
     fn print(&mut self, text: &str) {
         if text.is_empty() {
             return;
