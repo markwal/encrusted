@@ -234,12 +234,8 @@ impl<T> Row<T> where T: PartialEq + Default {
         };
 
         // pad out with spaces
-        println!("replace_range: {:?} with {:?} into {:?}", start..end, &s, self.text);
         self.text.push_str(&" ".repeat(pad.into()));
-        println!("text after pad : {:?}", self.text);
         self.text.replace_range(start..end, &s);
-        println!("text after repl: {:?}, {:?}", self.text, self.text.len());
-        println!("apply_style: {:?} to {:?}", start, start + s.len());
         self.apply_style(start, start + s.len(), style);
         return grapheme_index + s_len as u16;
     }
