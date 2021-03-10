@@ -295,6 +295,7 @@ pub struct Zmachine {
     pub terp_caps: TerpCaps,
     memory_streams: Vec<MemStream>,
     ostream_screen: bool,
+    location: String,
 }
 
 impl Zmachine {
@@ -372,6 +373,7 @@ impl Zmachine {
             terp_caps,
             memory_streams: Vec::new(),
             ostream_screen: true,
+            location: Default::default(),
         };
 
         // read into dictionary & word separators
@@ -1232,8 +1234,7 @@ impl Zmachine {
     fn get_status(&self) -> (String, String) {
         if self.version > 3 {
             // many callers expect left = location
-            // TODO: location for version > 3
-            return ("".to_string(), "".to_string());
+            return (self.location.to_string(), "".to_string());
         }
 
         let num = self.read_global(0);
@@ -1720,15 +1721,6 @@ impl Zmachine {
         }
     }
 
-    fn print_object(&mut self, object: &str) {
-        if self.memory_streams.is_empty() {
-            self.ui.print_object(object);
-        }
-        else {
-            self.print(object);
-        }
-    }
-
     fn set_initial_pc(&mut self) {
         self.pc = self.initial_pc;
         self.restart_header();
@@ -2202,7 +2194,24 @@ impl Zmachine {
     // OP1_138
     fn do_print_obj(&mut self, obj: u16) {
         let name = self.get_object_name(obj);
-        self.print_object(&name);
+        if self.memory_streams.is_empty() {
+
+            // for versions without interpreter status line
+            // assume the object printed in the top left corner is location
+            // FUTURE what do we do if it isn't and how should we detect?
+            // user setting?  infocom only?  etc.
+            if self.version > 3 && self.ui.get_window() == 1 {
+                let (col, row) = self.ui.get_cursor(1);
+                if row == 1 && col < 5 {
+                    self.location = name.to_string();
+                }
+                self.ui.debug(&format!("location = {}", &self.location));
+            }
+            self.ui.print_object(&name);
+        }
+        else {
+            self.print(&name);
+        }
     }
 
     // OP1_139

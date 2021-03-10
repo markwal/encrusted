@@ -151,9 +151,14 @@ impl UI for WebUI {
     fn split_window(&mut self, _: u16) {}
     fn set_text_style(&mut self, _zstyle: u16) {}
     fn set_window(&mut self, _zwindow: u16) {}
+    fn get_window(&mut self) -> u16 {
+        0
+        // todo!();
+    }
     fn set_cursor(&mut self, _zwindow: i16, _x: i16, _y: i16) {}
     fn get_cursor(&mut self, _zwindow: i16) -> (u16, u16) {
-        todo!();
+        (1, 1)
+        // todo!();
     }
     fn get_user_input(&mut self) -> String {
         unimplemented!();

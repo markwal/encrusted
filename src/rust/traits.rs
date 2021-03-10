@@ -13,6 +13,7 @@ pub trait UI {
     fn read_char(&self) -> char;
     fn set_text_style(&mut self, zstyle: u16);
     fn set_window(&mut self, zwindow: u16);
+    fn get_window(&mut self) -> u16;
     fn set_cursor(&mut self, zwindow: i16, x: i16, y: i16);
     fn get_cursor(&mut self, zwindow: i16) -> (u16, u16);
 

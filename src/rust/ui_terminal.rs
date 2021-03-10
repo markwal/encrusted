@@ -378,6 +378,10 @@ impl UI for TerminalUI {
         self.zwindow = zwindow;
     }
 
+    fn get_window(&mut self) -> u16 {
+        self.zwindow
+    }
+
     fn set_status_bar(&mut self, left: &str, right: &str) {
         if self.is_term() {
             let width = self.window.buffer.area.width;
