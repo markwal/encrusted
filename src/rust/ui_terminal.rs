@@ -5,7 +5,7 @@ use std::io;
 use std::io::{stdout, Write};
 use std::process;
 
-use crossterm::{execute, terminal, terminal::ClearType, tty::IsTty};
+use crossterm::{cursor, execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
 use crossterm::event;
 use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
@@ -214,7 +214,10 @@ impl TerminalUI {
 impl Drop for TerminalUI {
     fn drop(&mut self) {
         if self.is_term() {
-            println!("[Hit any key to exit.]");
+            Self::print_raw(&format!("\x1B[r"));
+            execute!(stdout(), cursor::MoveTo(0, self.height)).unwrap_or(());
+            print!("[Hit any key to exit.]");
+            stdout().flush().unwrap_or(());
             terminal::enable_raw_mode().unwrap_or(());
             loop {
                 match event::read().unwrap() {
@@ -224,7 +227,7 @@ impl Drop for TerminalUI {
                 }
             }
             terminal::disable_raw_mode().unwrap_or(());
-            Self::print_raw(&format!("\x1B[r"));
+            println!("");
         }
     }
 }
