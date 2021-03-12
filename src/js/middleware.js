@@ -223,7 +223,10 @@ const middleware = store => next => (action) => {
 
     case 'TS::RESTART':
       worker.send('restart');
-      worker.once('loaded', () => worker.send('start'));
+      worker.once('loaded', () => {
+        worker.send('interpreter_header', store.getState().interpreter);
+        worker.send('start');
+      });
 
       storage.clear();
       last_input = '';

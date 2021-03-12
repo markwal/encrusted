@@ -110,7 +110,6 @@ onmessage = (ev) => {
     const file_ptr = zmachine.utils.writeArray(file);
 
     zmachine.create(file_ptr, file.length);
-    sendWorkerMessage('interpreter_header', store.getState().interpreter);
     sendWorkerMessage('loaded');
   }
 
