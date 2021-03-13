@@ -47,6 +47,20 @@ struct Window {
     cursor: Point,
 }
 
+impl Window {
+    fn get_area(&self) -> &Rect {
+        self.buffer.get_area()
+    }
+
+    fn get_height(&self) -> u16 {
+        self.buffer.get_height()
+    }
+
+    fn get_width(&self) -> u16 {
+        self.buffer.get_width()
+    }
+}
+
 mod zscii {
     // from frotz
     pub const BAD: char = '\u{0000}';
@@ -236,7 +250,7 @@ impl UI for TerminalUI {
     fn clear(&self) {
         if self.is_term() {
             execute!(stdout(), terminal::Clear(ClearType::All)).unwrap();
-            Self::print_raw(&format!("\x1B[{};{}r", self.window.buffer.area.height + 1, self.height));
+            Self::print_raw(&format!("\x1B[{};{}r", self.window.get_height() + 1, self.height));
         }
     }
 
@@ -251,9 +265,9 @@ impl UI for TerminalUI {
         }
         else {
             self.window.cursor.x = self.window.buffer.print_at(self.window.cursor.x, self.window.cursor.y,
-                text, self.style);
-            if self.window.cursor.x > self.window.buffer.area.width {
-                self.window.cursor.x = self.window.buffer.area.width - 1;
+                text, &self.style);
+            if self.window.cursor.x > self.window.get_width() {
+                self.window.cursor.x = self.window.get_width() - 1;
             }
         }
     }
@@ -303,7 +317,7 @@ impl UI for TerminalUI {
         let     y = if y_in == 0 { self.window.cursor.y } else { y_in as u16 - y_adj };
         let mut x = if x_in == 0 { self.window.cursor.x } else { x_in as u16 - 1 };
 
-        if x >= self.window.buffer.area.width {
+        if x >= self.window.get_width() {
             x = 1;
         }
 
@@ -344,7 +358,7 @@ impl UI for TerminalUI {
         if self.is_term() {
             // v3 the status bar takes up row 0
             let height = if self.version == 3 { height + 1 } else { height };
-            let area = self.window.buffer.area;
+            let area = *self.window.get_area();
 
             // ensure cursor is still inside the window bounds
             if self.window.cursor.y >= height {
@@ -387,14 +401,14 @@ impl UI for TerminalUI {
 
     fn set_status_bar(&mut self, left: &str, right: &str) {
         if self.is_term() {
-            let width = self.window.buffer.area.width;
+            let width = self.window.get_width();
             self.window.buffer.print_at(0, 0,
                 &format!(" {:width$}", left, width = (width - 1) as usize),
-                ContentStyle::new().attribute(Attribute::Reverse)
+                &ContentStyle::new().attribute(Attribute::Reverse)
             );
 
             let right_width = count_graphemes(right) as u16 + 1;
-            self.window.buffer.print_at(width - right_width, 0, right, ContentStyle::new().attribute(Attribute::Reverse));
+            self.window.buffer.print_at(width - right_width, 0, right, &ContentStyle::new().attribute(Attribute::Reverse));
         }
     }
 

@@ -21,6 +21,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#![allow(dead_code)]
 
 //! A text buffer grid
 //!
@@ -37,6 +38,61 @@ pub struct Rect {
     pub y: u16,
     pub width: u16,
     pub height: u16,
+}
+
+#[derive(Debug)]
+/// A rectangular grid of characters (graphemes) with associated style
+/// info (T)
+pub struct ChGrid<T> where T: PartialEq {
+    pub area: Rect,
+    pub rows: Vec<Row<T>>,
+    pub first_row: u32,
+}
+
+impl<T> ChGrid<T> where T: PartialEq + Default + Copy {
+    /// Create a new ChGrid
+    pub fn new(area: Rect) -> ChGrid<T> {
+        ChGrid::<T> {
+            area: area,
+            rows: Vec::new(),
+            first_row: 0,
+        }
+    }
+
+    /// Clear the grid
+    pub fn clear(&mut self) {
+        self.first_row = 0;
+        self.rows = Vec::new();
+    }
+
+    /// Change the coordinate system to address this grid
+    ///
+    /// if keep_last, will try to keep the bottom row with the same content
+    /// as the old bottom row.  Otherwise, it'll be the top row that is 
+    /// maintained
+    pub fn resize(&mut self, area: Rect, keep_last: bool) {
+        if keep_last {
+            self.first_row += area.height as u32;
+            self.first_row -= std::cmp::min(self.first_row, self.area.height as u32);
+        }
+        self.area = area;
+    }
+
+    /// Print styled text at a particular place within the grid
+    pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: &T) -> u16 {
+        let irow = self.first_row as usize + y as usize;
+        if irow as usize >= self.rows.len() {
+            for _ in self.rows.len()..(irow + 1) {
+                self.rows.push(Row::new());
+            }
+        }
+        return self.rows[irow].overwrite_at(x, &s, &style);
+    }
+
+    /// Erase from the specified location to the end of line
+    pub fn erase_line_to_end_at(&mut self, x: u16, y: u16) {
+        self.rows[self.first_row as usize + y as usize].truncate_at(x);
+    }
 }
 
 #[derive(Debug, Copy, Clone)]

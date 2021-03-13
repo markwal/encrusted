@@ -36,14 +36,12 @@ use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Pri
 use crossterm::event;
 use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
-use chgrid::{Rect, Row, count_graphemes};
+use chgrid::{Rect, ChGrid, Row, count_graphemes};
 
 #[derive(Debug)]
 /// Terminal UI text and style buffer
 pub struct TermBuffer {
-    pub area: Rect,
-    rows: Vec<Row<ContentStyle>>,
-    first_row: u32,
+    grid: ChGrid<ContentStyle>,
 }
 
 impl TermBuffer {
@@ -51,17 +49,25 @@ impl TermBuffer {
     /// screen
     pub fn new(area: Rect) -> TermBuffer {
         TermBuffer {
-            area: area,
-            rows: Vec::new(),
-            first_row: 0,
+            grid: ChGrid::<ContentStyle>::new(area),
         }
+    }
+
+    pub fn get_area(&self) -> &Rect {
+        &self.grid.area
+    }
+
+    pub fn get_width(&self) -> u16 {
+        self.grid.area.width
+    }
+
+    pub fn get_height(&self) -> u16 {
+        self.grid.area.height
     }
 
     /// Clear the buffer
     pub fn clear(&mut self) {
-        self.first_row = 0;
-        self.rows = Vec::new();
-        self.refresh();
+        self.grid.clear();
     }
 
     /// Change the location and/or extent of this TermBuffer on the terminal
@@ -74,26 +80,16 @@ impl TermBuffer {
     /// as the old bottom row.  Otherwise, it'll be the top row that is 
     /// maintained
     pub fn resize(&mut self, area: Rect, keep_last: bool) {
-        if keep_last {
-            self.first_row += area.height as u32;
-            self.first_row -= cmp::min(self.first_row, self.area.height as u32);
-        }
-        self.area = area;
+        self.grid.resize(area, keep_last);
     }
 
     /// Print styled text at a particular place within the term buffer area
-    pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: ContentStyle) -> u16 {
-        let irow = self.first_row as usize + y as usize;
-        if irow as usize >= self.rows.len() {
-            for _ in self.rows.len()..(irow + 1) {
-                self.rows.push(Row::new());
-            }
-        }
-        let x_ret = self.rows[irow].overwrite_at(x, &s, &style);
+    pub fn print_at(&mut self, x: u16, y: u16, s: &str, style: &ContentStyle) -> u16 {
+        let x_ret = self.grid.print_at(x, y, s, style);
 
         // ignore output errors
         queue!(stdout(),
-            cursor::MoveTo(x + self.area.x, y + self.area.y),
+            cursor::MoveTo(x + self.grid.area.x, y + self.grid.area.y),
             Print(style.apply(s))
         ).unwrap_or(());
         stdout().flush().unwrap_or(());
@@ -103,10 +99,11 @@ impl TermBuffer {
 
     /// Erase from the specified location to the end of line
     fn erase_line_to_end_at(&mut self, x: u16, y: u16) {
-        self.rows[self.first_row as usize + y as usize].truncate_at(x);
-        let spaces = style(" ".repeat((self.area.width - x) as usize));
+        self.grid.erase_line_to_end_at(x, y);
+
+        let spaces = style(" ".repeat((self.get_width() - x) as usize));
         queue!(stdout(),
-            cursor::MoveTo(self.area.x + x, self.area.y + y),
+            cursor::MoveTo(self.grid.area.x + x, self.grid.area.y + y),
             Print(&spaces),
         ).unwrap_or(());
         stdout().flush().unwrap_or(());
@@ -115,24 +112,24 @@ impl TermBuffer {
     /// Redraw the entire area covered by this TermBuffer
     pub fn refresh(&self) {
         let mut stdout = stdout();
-        let mut y = self.area.y;
-        if self.first_row as usize >= self.rows.len() {
+        let mut y = self.grid.area.y;
+        if self.grid.first_row as usize >= self.grid.rows.len() {
             return;
         }
-        for row in &self.rows[self.first_row as usize..] {
-            queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
-            for (text, style) in row.iter_width(self.area.width) {
+        for row in &self.grid.rows[self.grid.first_row as usize..] {
+            queue!(stdout, cursor::MoveTo(self.grid.area.x, y)).unwrap_or(());
+            for (text, style) in row.iter_width(self.get_width()) {
                 queue!(stdout, Print(&style.apply(&text))).unwrap_or(());
             }
             let l = row.text.len();
-            if l < self.area.width as usize {
-                queue!(stdout, Print(style(" ".repeat(self.area.width as usize - l)))).unwrap_or(());
+            if l < self.get_width() as usize {
+                queue!(stdout, Print(style(" ".repeat(self.get_width() as usize - l)))).unwrap_or(());
             }
             y += 1;
         }
-        let empty_line = style(" ".repeat(self.area.width as usize));
-        while y < self.area.y + self.area.height {
-            queue!(stdout, cursor::MoveTo(self.area.x, y)).unwrap_or(());
+        let empty_line = style(" ".repeat(self.get_width() as usize));
+        while y < self.grid.area.y + self.get_height() {
+            queue!(stdout, cursor::MoveTo(self.grid.area.x, y)).unwrap_or(());
             queue!(stdout, Print(&empty_line)).unwrap_or(());
             y += 1;
         }
@@ -157,6 +154,14 @@ impl WrapBuffer {
             more_context: 1,
             more_lines: 0,
         }
+    }
+
+    pub fn get_width(&self) -> u16 {
+        self.termbuf.get_width()
+    }
+
+    pub fn get_height(&self) -> u16 {
+        self.termbuf.get_height()
     }
 
     pub fn clear(&mut self) {
@@ -189,18 +194,18 @@ impl WrapBuffer {
     }
 
     pub fn scroll_up(&mut self) {
-        self.termbuf.first_row += 1;
+        self.termbuf.grid.first_row += 1;
         if let Err(_) = execute!(stdout(), terminal::ScrollUp(1)) {
             self.termbuf.refresh();
         }
 
-        if self.more_context <= self.termbuf.area.height {
+        if self.more_context <= self.get_height() {
             self.more_lines += 1;
-            if self.more_lines + self.more_context > self.termbuf.area.height {
+            if self.more_lines + self.more_context > self.get_height() {
                 self.more_lines = 0;
-                self.termbuf.print_at(0, self.termbuf.area.height - 1, "[more]", ContentStyle::new());
+                self.termbuf.print_at(0, self.get_height() - 1, "[more]", &ContentStyle::new());
                 self.wait_for_key();
-                self.termbuf.erase_line_to_end_at(0, self.termbuf.area.height - 1);
+                self.termbuf.erase_line_to_end_at(0, self.get_height() - 1);
             }
         }
     }
@@ -220,16 +225,16 @@ impl WrapBuffer {
     fn wrap_append(&mut self, s: &str, style: &ContentStyle) {
         let mut width_row = 0;
 
-        if let Some(row) = self.termbuf.rows.last() {
+        if let Some(row) = self.termbuf.grid.rows.last() {
             width_row = count_graphemes(&row.text);
         }
 
         let mut scroll_up = false;
-        for (_, row_text) in s.wrap_to_width_offset(self.termbuf.area.width as usize, width_row) {
+        for (_, row_text) in s.wrap_to_width_offset(self.get_width() as usize, width_row) {
             if scroll_up || row_text.len() == 0 {
                 self.scroll_up();
             }
-            self.termbuf.print_at(width_row as u16, self.termbuf.area.height - 1, row_text, *style);
+            self.termbuf.print_at(width_row as u16, self.get_height() - 1, row_text, style);
             if row_text.is_empty() && scroll_up {
                 self.scroll_up();
             }
@@ -243,7 +248,7 @@ impl WrapBuffer {
     fn rewrap(&mut self) {
         let mut rows: Vec<Row<ContentStyle>> = Vec::new();
         let mut row = Row::new();
-        let width = self.termbuf.area.width as usize;
+        let width = self.get_width() as usize;
 
         for line in &self.lines {
             let mut iter = line.iter_run_ranges().enumerate();
@@ -272,14 +277,14 @@ impl WrapBuffer {
             }
         }
 
-        let height = self.termbuf.area.height as usize;
+        let height = self.get_height() as usize;
         if rows.len() < height {
             let mut empty_rows = (0..height - rows.len()).map(|_| { Row::new() }).collect::<Vec<Row<ContentStyle>>>();
             empty_rows.append(&mut rows);
             rows = empty_rows;
         }
-        self.termbuf.first_row = (rows.len() - height) as u32;
-        self.termbuf.rows = rows;
+        self.termbuf.grid.first_row = (rows.len() - height) as u32;
+        self.termbuf.grid.rows = rows;
         self.termbuf.refresh();
     }
 
@@ -501,7 +506,7 @@ pub fn test_termbuffer() {
         width: cols,
         height: rows,
     });
-    buf.print_at(10, 5, "This is a test!", ContentStyle::new().background(Color::Blue));
+    buf.print_at(10, 5, "This is a test!", &ContentStyle::new().background(Color::Blue));
     execute!(stdout(), cursor::MoveTo(0, rows - 3)).unwrap();
 }
 
