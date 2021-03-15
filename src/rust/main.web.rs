@@ -2,6 +2,7 @@ extern crate base64;
 extern crate rand;
 extern crate serde_json;
 extern crate bitflags;
+extern crate unicode_segmentation;
 
 #[macro_use]
 extern crate serde_derive;
@@ -29,6 +30,7 @@ mod traits;
 mod ui_web;
 mod zmachine;
 mod panic_hook;
+mod chgrid;
 
 use options::Options;
 use ui_web::WebUI;

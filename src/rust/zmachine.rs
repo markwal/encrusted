@@ -26,7 +26,7 @@ use instruction::Operand;
 use instruction::OperandType;
 use options::Options;
 use quetzal::QuetzalSave;
-use traits::UI;
+use traits::{UI, Zstyle};
 
 #[derive(Debug)]
 enum ZStringState {
@@ -295,7 +295,7 @@ pub struct Zmachine {
     pub terp_caps: TerpCaps,
     memory_streams: Vec<MemStream>,
     ostream_screen: bool,
-    location: String,
+    location: u16,
 }
 
 impl Zmachine {
@@ -373,7 +373,7 @@ impl Zmachine {
             terp_caps,
             memory_streams: Vec::new(),
             ostream_screen: true,
-            location: Default::default(),
+            location: 0,
         };
 
         // read into dictionary & word separators
@@ -1219,13 +1219,27 @@ impl Zmachine {
         }
     }
 
+    fn get_location_name(&self) -> String {
+        if self.location == 0 {
+            "".to_string()
+        }
+        else {
+            self.get_object_name(self.location)
+        }
+    }
+
     // Web UI only
     #[allow(dead_code)]
     pub fn get_current_room(&self) -> (u16, String) {
-        if self.version > 3 {
-            return (0, "".to_string());
+        let num = if self.version > 3 {
+            if self.location == 0 {
+                return (0, "".to_string());
+            }
+            self.location
         }
-        let num = self.read_global(0);
+        else {
+            self.read_global(0)
+        };
         let name = self.get_object_name(num);
 
         (num, name)
@@ -1234,7 +1248,7 @@ impl Zmachine {
     fn get_status(&self) -> (String, String) {
         if self.version > 3 {
             // many callers expect left = location
-            return (self.location.to_string(), "".to_string());
+            return (self.get_location_name(), "".to_string());
         }
 
         let num = self.read_global(0);
@@ -1263,11 +1277,6 @@ impl Zmachine {
     }
 
     pub fn update_status_bar(&mut self) {
-        // status bar only used in v1-3
-        if self.version > 3 {
-            return;
-        }
-
         let (left, right) = self.get_status();
         self.ui.set_status_bar(&left, &right);
     }
@@ -2195,7 +2204,6 @@ impl Zmachine {
     fn do_print_obj(&mut self, obj: u16) {
         let name = self.get_object_name(obj);
         if self.memory_streams.is_empty() {
-
             // for versions without interpreter status line
             // assume the object printed in the top left corner is location
             // FUTURE what do we do if it isn't and how should we detect?
@@ -2203,9 +2211,8 @@ impl Zmachine {
             if self.version > 3 && self.ui.get_window() == 1 {
                 let (col, row) = self.ui.get_cursor(1);
                 if row == 1 && col < 5 {
-                    self.location = name.to_string();
+                    self.location = obj;
                 }
-                self.ui.debug(&format!("location = {}", &self.location));
             }
             self.ui.print_object(&name);
         }
@@ -2504,8 +2511,7 @@ impl Zmachine {
         }
 
         // and save the current state
-        // TODO: location for version > 3
-        let location = if self.version <= 3 { self.get_object_name(self.read_global(0)) } else { String::new() };
+        let location = if self.version <= 3 { self.get_object_name(self.read_global(0)) } else { self.get_location_name() };
         let state = self.make_save_state(instr.next);
         self.current_state = Some((location, state));
     }
@@ -2614,7 +2620,7 @@ impl Zmachine {
 
     // VAR_241
     fn do_set_text_style(&mut self, style: u16) {
-        self.ui.set_text_style(style);
+        self.ui.set_text_style(Zstyle::new(style));
     }
 
     // VAR_243

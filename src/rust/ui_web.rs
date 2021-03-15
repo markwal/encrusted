@@ -5,30 +5,77 @@ use std::fmt::Write;
 use serde_json;
 
 use js_message;
-use traits::UI;
+use traits::{UI, Zstyle};
+use chgrid::{Rect, ChGrid};
 
+#[allow(dead_code)]
 #[derive(Debug)]
 enum Token {
     Newline,
     Text(String),
     Object(String),
     Debug(String),
+    TextProps(ZTextProps),
     Erase,
+}
+
+enum_from_primitive! {
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Zfont {
+        NoChange = 0,
+        Normal = 1,
+        Picture = 2,
+        CharGraphics = 3,
+        Fixed = 4,
+    }
+}
+
+impl Default for Zfont {
+    fn default() -> Self { Zfont::Normal }
+}
+
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ZTextProps {
+    font: Zfont,
+    style: Zstyle,
+    color: u32,
 }
 
 #[derive(Debug)]
 pub struct WebUI {
     buffer: Vec<Token>,
+    windows: Vec<Window>,
+    cur_window: usize,
+    props: ZTextProps,
 }
 
 impl WebUI {
     pub fn new() -> Box<WebUI> {
-        Box::new(WebUI { buffer: Vec::new() })
+        Box::new(WebUI { 
+            buffer: Vec::new(),
+            windows: Vec::new(),
+            cur_window: 0,
+            props: Default::default(),
+        })
     }
 }
 
 impl UI for WebUI {
     fn print(&mut self, text: &str) {
+        if self.cur_window > 0 {
+            if self.cur_window < self.windows.len() {
+                let window = &mut self.windows[self.cur_window - 1];
+                let cursor = &mut window.cursor;
+                let x = window.grid.print_at(cursor.x - 1, cursor.y - 1, text, &self.props);
+                window.cursor.x = if x > window.get_width() {
+                    window.get_width() - 1
+                }
+                else { x }
+            }
+            return;
+        }
+
         if text.is_empty() {
             return;
         }
@@ -65,6 +112,10 @@ impl UI for WebUI {
     }
 
     fn print_object(&mut self, obj: &str) {
+        if self.cur_window > 0 {
+            self.print(obj);
+            return;
+        }
         self.buffer.push(Token::Object(String::from(obj)));
     }
 
@@ -85,6 +136,8 @@ impl UI for WebUI {
             let next = self.buffer.get(index + 1);
 
             match *item {
+                Token::TextProps(_) => {
+                }
                 Token::Newline => {
                     html.push_str("<br>");
                 }
@@ -125,7 +178,7 @@ impl UI for WebUI {
 
     fn set_status_bar(&mut self, left: &str, right: &str) {
         let msg = serde_json::to_string(&(left, right)).unwrap();
-        self.message("header", &msg)
+        self.message("header", &msg);
     }
 
     fn message(&self, mtype: &str, msg: &str) {
@@ -146,24 +199,99 @@ impl UI for WebUI {
         }
     }
 
-    fn clear(&self) {}
-    fn reset(&self) {}
-    fn split_window(&mut self, _: u16) {}
-    fn set_text_style(&mut self, _zstyle: u16) {}
-    fn set_window(&mut self, _zwindow: u16) {}
+    fn split_window(&mut self, height: u16) {
+        let rect = Rect {
+            x: 0,
+            y: 0,
+            width: 60, // TODO use current screen width?
+            height: height,
+        };
+        let window = Window::new(&rect);
+        if self.windows.len() > 0 {
+            self.windows[0] = window;
+        }
+        else {
+            self.windows.push(window);
+        }
+    }
+
+    fn set_text_style(&mut self, zstyle: Zstyle) {
+        self.props.style = zstyle;
+    }
+
+    fn set_window(&mut self, zwindow: u16) {
+        self.cur_window = zwindow.into();
+    }
+
     fn get_window(&mut self) -> u16 {
-        0
-        // todo!();
+        return (self.cur_window) as u16;
     }
-    fn set_cursor(&mut self, _zwindow: i16, _x: i16, _y: i16) {}
-    fn get_cursor(&mut self, _zwindow: i16) -> (u16, u16) {
-        (1, 1)
-        // todo!();
+
+    fn set_cursor(&mut self, zwindow: i16, x_in: i16, y_in: i16) {
+        if zwindow == 0 || zwindow as usize > self.windows.len() {
+            return;
+        }
+        let zwindow = zwindow as usize - 1;
+
+        if y_in < 0 {
+            // TODO v6 this turns on and off the cursor
+            return;
+        }
+
+        let cursor = &self.windows[zwindow].cursor;
+
+        let     y = if y_in == 0 { cursor.y } else { y_in as u16 };
+        let mut x = if x_in == 0 { cursor.x } else { x_in as u16 };
+
+        if x >= self.windows[zwindow].get_width() {
+            x = 1;
+        }
+
+        self.windows[zwindow].cursor = Point { x, y };
     }
+
+    fn get_cursor(&mut self, zwindow: i16) -> (u16, u16) {
+        if zwindow > 0 && zwindow as usize - 1 < self.windows.len() {
+            let cursor = &self.windows[zwindow as usize - 1].cursor;
+            (cursor.x, cursor.y)
+        }
+        else {
+            (1, 1)
+        }
+    }
+
+    // Terminal UI only
     fn get_user_input(&mut self) -> String {
         unimplemented!();
     }
     fn read_char(&self) -> char {
         unimplemented!();
+    }
+    fn clear(&self) {}
+    fn reset(&self) {}
+}
+
+#[derive(Debug, Clone)]
+struct Point {
+    x: u16,
+    y: u16,
+}
+
+#[derive(Debug)]
+struct Window {
+    grid: ChGrid<ZTextProps>,
+    cursor: Point,
+}
+
+impl Window {
+    fn new(rect: &Rect) -> Window {
+        Window {
+            grid: ChGrid::<ZTextProps>::new(*rect),
+            cursor: Point { x: 1, y: 1, },
+        }
+    }
+
+    fn get_width(&self) -> u16 {
+        self.grid.area.width
     }
 }

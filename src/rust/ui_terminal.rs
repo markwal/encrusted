@@ -9,13 +9,12 @@ use crossterm::{cursor, execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
 use crossterm::event;
 use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
-use bitflags::bitflags;
 use regex::Regex;
 
 use chgrid::{Rect, count_graphemes};
 use termbuffer::{TermBuffer, WrapBuffer};
 
-use traits::UI;
+use traits::{UI, Zstyle};
 
 lazy_static! {
     static ref ANSI_RE: Regex = Regex::new(
@@ -118,25 +117,6 @@ mod zscii {
     pub const LATIN1_MAX: char = '\u{00ff}';
 }
 
-bitflags! {
-    #[derive(Default)]
-    struct Zstyle: u16 {
-        const ROMAN = 0;
-        const REVERSE = 1;
-        const BOLDFACE = 2;
-        const EMPHASIS = 4;
-        const FIXED_WIDTH = 8;
-    }
-}
-
-impl Zstyle {
-    fn new(bits: u16) -> Zstyle {
-        let mut zstyle = Zstyle::ROMAN;
-        zstyle.bits = bits;
-        zstyle
-    }
-}
-
 impl TerminalUI {
     pub fn new(version: u8, width: u16) -> Box<TerminalUI> {
         let mut width = if width == 0 { u16::MAX } else { width };
@@ -148,7 +128,9 @@ impl TerminalUI {
             let margin = if w > width { (w - width) / 2 } else { 0 }; // round to equal margins
             width = w - margin * 2;
             height = h;
-            Self::print_raw(&format!("\x1B[{};{}r", 2, h));
+            if isatty {
+                Self::print_raw(&format!("\x1B[{};{}r", 2, h));
+            }
             Rect {
                 x: margin,
                 y: 1,
@@ -288,8 +270,7 @@ impl UI for TerminalUI {
         }
     }
 
-    fn set_text_style(&mut self, zstyle: u16) {
-        let zstyle = Zstyle::new(zstyle);
+    fn set_text_style(&mut self, zstyle: Zstyle) {
         let mut style = ContentStyle::new();
         if !(zstyle & Zstyle::REVERSE).is_empty() {
             style = style.attribute(Attribute::Reverse);
@@ -400,7 +381,7 @@ impl UI for TerminalUI {
     }
 
     fn set_status_bar(&mut self, left: &str, right: &str) {
-        if self.is_term() {
+        if self.is_term() && self.version <= 3 {
             let width = self.window.get_width();
             self.window.buffer.print_at(0, 0,
                 &format!(" {:width$}", left, width = (width - 1) as usize),

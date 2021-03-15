@@ -1,3 +1,5 @@
+use bitflags::bitflags;
+
 pub trait UI {
     fn clear(&self);
     fn print(&mut self, text: &str);
@@ -11,7 +13,7 @@ pub trait UI {
     fn get_user_input(&mut self) -> String;
     fn split_window(&mut self, height: u16);
     fn read_char(&self) -> char;
-    fn set_text_style(&mut self, zstyle: u16);
+    fn set_text_style(&mut self, zstyle: Zstyle);
     fn set_window(&mut self, zwindow: u16);
     fn get_window(&mut self) -> u16;
     fn set_cursor(&mut self, zwindow: i16, x: i16, y: i16);
@@ -21,3 +23,23 @@ pub trait UI {
     fn flush(&mut self);
     fn message(&self, mtype: &str, msg: &str);
 }
+
+bitflags! {
+    #[derive(Default)]
+    pub struct Zstyle: u16 {
+        const ROMAN = 0;
+        const REVERSE = 1;
+        const BOLDFACE = 2;
+        const EMPHASIS = 4;
+        const FIXED_WIDTH = 8;
+    }
+}
+
+impl Zstyle {
+    pub fn new(bits: u16) -> Zstyle {
+        let mut zstyle = Zstyle::ROMAN;
+        zstyle.bits = bits;
+        zstyle
+    }
+}
+
