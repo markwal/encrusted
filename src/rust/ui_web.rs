@@ -59,6 +59,43 @@ impl WebUI {
             props: Default::default(),
         })
     }
+
+    #[allow(dead_code)]
+    fn css_from_zprops(zprops: &ZTextProps) -> String {
+        let mut v = Vec::new();
+        if zprops.style.contains(Zstyle::REVERSE) {
+            v.push("reverse");
+        }
+        if zprops.style.contains(Zstyle::BOLDFACE) {
+            v.push("bold");
+        }
+        if zprops.style.contains(Zstyle::EMPHASIS) {
+            v.push("emphasis");
+        }
+
+        v.join(" ")
+    }
+
+    #[allow(dead_code)]
+    fn render_window(&self, zwindow: usize) -> String {
+        // zwindow 0 is the scrolling transcript which is handled by the token
+        // stream in self.buffer
+        if zwindow == 0 || zwindow - 1 >= self.windows.len() {
+            return String::new();
+        }
+
+        let window = &self.windows[zwindow - 1];
+        let mut s = String::with_capacity(window.grid.rows.len() * 80);
+        for row in &window.grid.rows {
+            s.push_str(r#"<div className="window">"#);
+            for (text, zprops) in row.iter() {
+                write!(s, r#"<span className="{}">{}</span>"#, Self::css_from_zprops(&zprops), text);
+            }
+            s.push_str("</div>\n");
+        }
+        s.shrink_to_fit();
+        return s;
+    }
 }
 
 impl UI for WebUI {
@@ -68,10 +105,8 @@ impl UI for WebUI {
                 let window = &mut self.windows[self.cur_window - 1];
                 let cursor = &mut window.cursor;
                 let x = window.grid.print_at(cursor.x - 1, cursor.y - 1, text, &self.props);
-                window.cursor.x = if x > window.get_width() {
-                    window.get_width() - 1
-                }
-                else { x }
+                window.cursor.x = std::cmp::min(x, window.get_width() - 1);
+                window.dirty = true;
             }
             return;
         }
@@ -120,6 +155,11 @@ impl UI for WebUI {
     }
 
     fn flush(&mut self) {
+        if self.windows.len() > 0 && self.windows[0].dirty {
+            self.message("window_update", &self.render_window(1));
+            self.windows[0].dirty = false;
+        }
+
         if self.buffer.is_empty() {
             return;
         }
@@ -206,7 +246,8 @@ impl UI for WebUI {
             width: 60, // TODO use current screen width?
             height: height,
         };
-        let window = Window::new(&rect);
+        let mut window = Window::new(&rect);
+        window.dirty = true;
         if self.windows.len() > 0 {
             self.windows[0] = window;
         }
@@ -281,6 +322,7 @@ struct Point {
 struct Window {
     grid: ChGrid<ZTextProps>,
     cursor: Point,
+    dirty: bool,
 }
 
 impl Window {
@@ -288,6 +330,7 @@ impl Window {
         Window {
             grid: ChGrid::<ZTextProps>::new(*rect),
             cursor: Point { x: 1, y: 1, },
+            dirty: false,
         }
     }
 

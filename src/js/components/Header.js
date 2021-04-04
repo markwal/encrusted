@@ -45,6 +45,7 @@ class Header extends Component {
             {this.props.right || '\u00A0'}
           </div>
         </div>
+        {this.props.window}
       </div>
     );
   }
@@ -55,6 +56,7 @@ export default connect(
   state => ({
     left: state.transcript.header.left,
     right: state.transcript.header.right,
+    window: state.transcript.header.window,
     canUndo: !state.transcript.quit && state.transcript.moves.length > 1,
     canRedo: !state.transcript.quit && !!state.transcript.undos.length,
   }),

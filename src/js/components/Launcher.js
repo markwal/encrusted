@@ -49,7 +49,7 @@ class Launcher extends Component {
         view.getUint16(0xE) <= view.byteLength &&
         view.getUint16(0x1A) * 2 <= view.byteLength;
 
-      const isRightVersion = view.getUint8(0x0) <= 3;
+      const isRightVersion = true; // view.getUint8(0x0) <= 3;
 
       if (isValid && isRightVersion) {
         const name = (!!~file.name.indexOf('.'))

@@ -96,6 +96,7 @@ const middleware = store => next => (action) => {
     });
 
     worker.on('header', data => dispatch({ type: 'TS::HEADER', data }));
+    worker.on('window_update', data => dispatch({ type: 'TS:WINDOW', data }));
     worker.on('quit', () => dispatch({ type: 'TS::QUIT' }));
 
     // short timer here to make sure the text gets rendered quickest

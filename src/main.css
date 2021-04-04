@@ -645,6 +645,8 @@ h1 {
 }
 
 .header {
+    display: flex;
+    flex-direction: column;
     position: -webkit-sticky;
     position: sticky;
     top: 0;
@@ -664,6 +666,34 @@ h1 {
     text-transform: uppercase;
     font-size: 11.5px;
     letter-spacing: 1px;
+}
+
+.header .window {
+    display: flex;
+    position: relative;
+    box-sizing: content-box;
+    left: -25px;
+    width: 100%;
+    max-width: none;
+    background: #FFF;
+    color: #777;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: nowrap;
+}
+
+.header .window .reverse {
+    background: #777;
+    color: #FFF;
+}
+
+.header .window .bold {
+    font-weight: bold;
+}
+
+.header .window .emphasis {
+  font-style: italic;
 }
 
 .header .test-font {

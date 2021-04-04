@@ -742,11 +742,12 @@ impl Zmachine {
 
 //       TODO self.memory.write_byte(H_FLAGS, h_flags);
 //
-        let screen_cols = self.terp_caps.width / self.terp_caps.font_width;
-        let screen_cols = if screen_cols > 120 { 120 } else { screen_cols };
-        let screen_rows = self.terp_caps.height / self.terp_caps.font_height;
-        let screen_rows = if screen_rows > 255 { 255 } else { screen_rows };
         if self.version >= 4 {
+            let screen_cols = self.terp_caps.width / self.terp_caps.font_width;
+            let screen_cols = if screen_cols > 120 { 120 } else { screen_cols };
+            let screen_rows = self.terp_caps.height / self.terp_caps.font_height;
+            let screen_rows = if screen_rows > 255 { 255 } else { screen_rows };
+
             self.memory.write_byte(HeaderOffset::INTERPRETER_NUMBER as usize, 4 /* INTERP_AMIGA */);
             self.memory.write_byte(HeaderOffset::INTERPRETER_VERSION as usize, 'F' as u8);
 
@@ -1641,6 +1642,7 @@ impl Zmachine {
             (VAR_240, &[num, addr]) => self.do_get_cursor(num, addr),
             (VAR_240, &[addr]) => self.do_get_cursor(1, addr),
             (VAR_241, &[num]) => self.do_set_text_style(num),
+            (VAR_242, &[num]) => self.do_buffer_mode(num),
             (VAR_243, &[num]) => self.do_output_stream(num, 0, 0),
             (VAR_243, &[num, addr]) => self.do_output_stream(num, addr, 0),
             (VAR_243, &[num, addr, width]) => self.do_output_stream(num, addr, width),
@@ -2621,6 +2623,11 @@ impl Zmachine {
     // VAR_241
     fn do_set_text_style(&mut self, style: u16) {
         self.ui.set_text_style(Zstyle::new(style));
+    }
+
+    // VAR_242
+    fn do_buffer_mode(&mut self, _num: u16) {
+        // TODO: let the ui layer decide how to "not buffer"
     }
 
     // VAR_243

@@ -56,6 +56,11 @@ function transcript(state = initialTranscript, action) {
         header: { lines },
       });
 
+    case 'TS::WINDOW':
+      return Object.assign({}, state, {
+        window: action.data,
+      });
+
     case 'TS::STOP':
     case 'TS::RESTART':
       return Object.assign({}, initialTranscript);
