@@ -54,10 +54,10 @@ module.exports = {
 
     new CopyWebpackPlugin({
       patterns: [
-        { from: './src/*.css', to: './[name].[ext]' },
-        { from: './src/img/**.*', to: './img/[name].[ext]' },
-        { from: './src/electron/*.*', to: './[name].[ext]' },
-        { from: './build/*.wasm', to: './[name].[ext]' },
+        { from: './src/*.css', to: './[name][ext]' },
+        { from: './src/img/**.*', to: './img/[name][ext]' },
+        { from: './src/electron/*.*', to: './[name][ext]' },
+        { from: './build/*.wasm', to: './[name][ext]' },
       ],
     }),
   ]
