@@ -47,6 +47,32 @@ The safest path is:
 2. Re-run the dependency sweep once registry resolution is reliable.
 3. Only then consider small build-tool upgrades that stay within the current app architecture.
 
+## Babel Migration Chosen
+
+The repo has now been updated to target the newest stable Babel 7 React preset currently published:
+
+- `@babel/preset-react`: `^7.27.1`
+- `@babel/core`: `^7.28.4`
+
+This is a narrow manifest change only. The lockfile was not refreshed as part of this migration because the install path still needs to be verified in a healthy npm environment.
+
+## react-split-pane Status
+
+`react-split-pane` is already on the latest stable release line used by npm:
+
+- current repo version: `^0.1.92`
+- npm `latest` dist-tag: `0.1.92`
+- npm `next` dist-tag: `2.0.3`
+
+No package change was applied for `react-split-pane` because the repo is already on the stable dist-tag.
+
+The `2.0.3` line was not adopted because it is published on `next`, not `latest`, and its package metadata targets an older React baseline:
+
+- `react: ^16.2.0`
+- `react-dom: ^16.2.0`
+
+That means moving to `2.0.3` would not be a clean “latest stable” migration for this React 17 app, and it would add unnecessary compatibility risk without a clear benefit.
+
 ## Why No Safe Upgrade Set Was Proposed Yet
 
 The sweep found that the dependency ecosystem visible from this environment does not line up cleanly with the versions pinned in the repo:
