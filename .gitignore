@@ -4,6 +4,7 @@
 /build
 /electron
 /assets
+/src/assets
 /dist
 tags
 .cargo/
