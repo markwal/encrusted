@@ -49,6 +49,11 @@ module.exports = {
   ],
 
   devServer: {
+    static: {
+      directory: path.join(__dirname, 'build'),
+    },
+    port: 8000,
+    open: false,
     historyApiFallback: {
       rewrites: [
         { from: /^\/run\/.+/, to: '/index.html' },

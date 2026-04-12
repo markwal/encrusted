@@ -18,10 +18,13 @@
     "pack:electron": "npm run bundle:electron && electron-builder --dir",
     "dist:electron": "npm run bundle:electron && electron-builder",
     "release": "npm run bundle && npm run build:release",
-    "dev": "webpack serve --config ./webpack.dev.js --content-base ./build --port 8000 --open",
+    "dev": "webpack serve --config ./webpack.dev.js",
     "clippy": "cargo clippy -- -A unreadable_literal -A cast_lossless -Z no-trans",
     "clippy-lite": "cargo clippy -- -A unreadable_literal -A cast_lossless -A match_same_arms -A match_overlapping_arm -Z no-trans",
     "test": "cargo build --bin encrusted && ./tests/runtests.sh"
+  },
+  "engines": {
+    "node": ">=18.12.0"
   },
   "build": {
     "appId": "io.github.markwal.encrusted",
@@ -56,8 +59,8 @@
     "electron-builder": "^22.10.5",
     "mkdirp": "^1.0.4",
     "terser-webpack-plugin": "5.1.1",
-    "webpack": "^5.30.0",
-    "webpack-cli": "^4.6.0",
-    "webpack-dev-server": "^3.11.2"
+    "webpack": "^5.102.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.3"
   }
 }
