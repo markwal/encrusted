@@ -86,6 +86,7 @@ Do not overwrite or revert those changes unless the user explicitly asks.
 
 ## Practical Tips For Future Agents
 
+- When creating a shell to run commands, always set the current working directory to the repo root
 - If you touch wasm-facing Rust code, also sanity-check the related JS bridge code in `src/js/worker.js`, `src/js/WorkerController.js`, and reducer/middleware files.
 - If you touch packaging or desktop behavior, inspect both `package.json` and `src/electron/`.
 - If you change interpreter behavior, prefer running the regression suite before finishing.
