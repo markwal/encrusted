@@ -89,7 +89,7 @@ impl WebUI {
         for row in &window.grid.rows {
             s.push_str(r#"<div className="window">"#);
             for (text, zprops) in row.iter() {
-                write!(s, r#"<span className="{}">{}</span>"#, Self::css_from_zprops(&zprops), text);
+                write!(s, r#"<span className="{}">{}</span>"#, Self::css_from_zprops(&zprops), text).unwrap();
             }
             s.push_str("</div>\n");
         }
