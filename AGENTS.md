@@ -74,19 +74,10 @@ Notes:
 - Preserve the existing plain-JS style in `src/js/`; this repo does not appear to use TypeScript.
 - Preserve the existing Rust style and crate structure; the interpreter logic is centralized in `src/rust/zmachine.rs`.
 
-## Current Repo State
-
-This working tree already has uncommitted changes that may belong to the user:
-
-- Modified: `src/rust/ui_web.rs`
-- Untracked: `src/assets/`
-- Untracked: `yarn.lock`
-
-Do not overwrite or revert those changes unless the user explicitly asks.
-
 ## Practical Tips For Future Agents
 
 - When creating a shell to run commands, always set the current working directory to the repo root
+- When running PowerShell commands, use `login: true` so the user's PowerShell profile loads and the default `fnm` Node environment is available. After the shell starts, explicitly change the current working directory back to the `encrusted` working tree before running repo commands.
 - If you touch wasm-facing Rust code, also sanity-check the related JS bridge code in `src/js/worker.js`, `src/js/WorkerController.js`, and reducer/middleware files.
 - If you touch packaging or desktop behavior, inspect both `package.json` and `src/electron/`.
 - If you change interpreter behavior, prefer running the regression suite before finishing.

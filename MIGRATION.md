@@ -159,3 +159,51 @@ At the moment, the right call is caution:
 - No automatic dependency bump was applied.
 - No migration-heavy major upgrade is recommended until installs are deterministic.
 - The highest-value next action is to repair or verify the JavaScript dependency resolution path.
+
+## Obsolete Package Cleanup Checklist
+
+This checklist captures the current package-removal plan based on the present `package.json`, installed tree, and actual imports in the repo. The goal is to remove obsolete packages in the safest order, starting with isolated direct dependencies and saving the wasm boundary migration for last.
+
+### Baseline And Lockfile Hygiene
+
+- [ ] Keep `package-lock.json` as the single JavaScript lockfile for the repo.
+- [ ] Regenerate a clean npm install before making broad dependency changes.
+- [ ] Re-check for extraneous or stale packages after reinstall.
+
+### Direct Dependency Removals And Replacements
+
+- [ ] Remove `shouldcomponentupdate-children`.
+- [ ] Replace its usage in `src/js/components/Spoken.js` with `react-redux`'s `shallowEqual` or a small local helper.
+- [ ] Replace `react-split-pane` with a maintained splitter package or a small local splitter component.
+- [ ] Update `src/js/components/ZMachine.js` to use the replacement splitter.
+
+### Upstream Package Upgrades To Remove Obsolete Transitives
+
+- [ ] Upgrade `electron` and `electron-builder` together as one workstream.
+- [ ] Update `src/electron/electronmain.js` to use modern window-opening APIs during the Electron upgrade.
+- [ ] Re-test preload, navigation interception, custom titlebar controls, and packaging after the Electron upgrade.
+- [ ] Revisit webpack-side build dependencies after Electron is upgraded.
+- [ ] Check whether `copy-webpack-plugin`, `babel-loader`, and direct `terser-webpack-plugin` usage can be simplified or updated once the platform bump is complete.
+
+### High-Effort Architecture Migration
+
+- [ ] Plan a migration away from `wasm-ffi`.
+- [ ] Replace the `wasm-ffi` bridge in `src/js/worker.js` with a modern wasm binding approach.
+- [ ] Update the Rust wasm export layer to match the new binding strategy.
+- [ ] Re-verify the browser and Electron wasm startup flows after the bridge migration.
+
+### Validation
+
+- [ ] Run `cargo check --bin encrusted`.
+- [ ] Run `cargo check --lib --target wasm32-unknown-unknown`.
+- [ ] Run `npm run bundle:electron`.
+- [ ] Run `npm run test`.
+
+### Suggested Execution Order
+
+- [ ] Phase 1: npm install and lockfile cleanup.
+- [ ] Phase 2: remove `shouldcomponentupdate-children`.
+- [ ] Phase 3: replace `react-split-pane`.
+- [ ] Phase 4: upgrade Electron and packaging dependencies.
+- [ ] Phase 5: clean up remaining build-tool dependencies.
+- [ ] Phase 6: migrate off `wasm-ffi`.
