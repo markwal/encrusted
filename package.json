@@ -47,7 +47,6 @@
     "react-split-pane": "^3.2.0",
     "react-tabs": "^6.1.1",
     "redux": "^5.0.1",
-    "shouldcomponentupdate-children": "^1.1.0",
     "wasm-ffi": "^0.3.0"
   },
   "devDependencies": {

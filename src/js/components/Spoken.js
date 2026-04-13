@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { shallowEqual } from 'shouldcomponentupdate-children';
+import { shallowEqual } from 'react-redux';
 
 
 // non-local voices cut out after > ~15s of speech. need to break them up into
