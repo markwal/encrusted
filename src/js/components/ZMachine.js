@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
+import { useParams } from 'react-router-dom';
 import SplitPane from 'react-split-pane';
 
 import ModalController from './ModalController';
@@ -58,7 +59,7 @@ class ZMachine extends Component {
         <ModalController />
 
         <SplitPane split="vertical" defaultSize={size} onChange={save}>
-          <Transcript filename={this.props.match.params.filename} />
+          <Transcript filename={this.props.filename} />
           <DebugPanel />
         </SplitPane>
       </div>
@@ -67,7 +68,7 @@ class ZMachine extends Component {
 }
 
 
-export default connect(
+const ConnectedZMachine = connect(
   state => ({
     settings: state.settings,
   }),
@@ -76,3 +77,9 @@ export default connect(
     saveScreenDimensions: data  => dispatch({ type: 'INTERPRETER', data }),
   }),
 )(ZMachine);
+
+export default function RoutedZMachine() {
+  const { filename } = useParams();
+
+  return <ConnectedZMachine filename={filename} />;
+}

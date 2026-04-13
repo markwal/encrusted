@@ -117,7 +117,7 @@ class Launcher extends Component {
   render() {
     const uploaded = this.state.files.map(name => (
       <div className="col card" key={name}>
-        <Link className="coverart" to={`./run/${name}`} onMouseEnter={this.onMouseEnter}>
+        <Link className="coverart" to={`/run/${name}`} onMouseEnter={this.onMouseEnter}>
           <div className="filename">
             <h5>{name}</h5>
           </div>
@@ -158,7 +158,7 @@ class Launcher extends Component {
 
                 <div className="row">
                   <div className="col card">
-                    <Link to="./run/zork1" className="coverart hover" onMouseEnter={this.onMouseEnter}>
+                    <Link to="/run/zork1" className="coverart hover" onMouseEnter={this.onMouseEnter}>
                       <div className="img-wrap">
                         <img src="./img/z1.jpg" srcSet="./img/z1@2x.jpg 2x" alt="Zork I" />
                       </div>
@@ -169,7 +169,7 @@ class Launcher extends Component {
                   </div>
 
                   <div className="col card">
-                    <Link className="coverart" to="./run/zork2" onMouseEnter={this.onMouseEnter}>
+                    <Link className="coverart" to="/run/zork2" onMouseEnter={this.onMouseEnter}>
                       <div className="img-wrap">
                         <img src="./img/z2.jpg" srcSet="./img/z2@2x.jpg 2x" alt="Zork II" />
                       </div>
@@ -180,7 +180,7 @@ class Launcher extends Component {
                   </div>
 
                   <div className="col card">
-                    <Link className="coverart" to="./run/zork3" onMouseEnter={this.onMouseEnter}>
+                    <Link className="coverart" to="/run/zork3" onMouseEnter={this.onMouseEnter}>
                       <div className="img-wrap">
                         <img src="./img/z3.jpg" srcSet="./img/z3@2x.jpg 2x" alt="Zork III" />
                       </div>
