@@ -174,8 +174,6 @@ This checklist captures the current package-removal plan based on the present `p
 
 - [ ] Remove `shouldcomponentupdate-children`.
 - [ ] Replace its usage in `src/js/components/Spoken.js` with `react-redux`'s `shallowEqual` or a small local helper.
-- [ ] Replace `react-split-pane` with a maintained splitter package or a small local splitter component.
-- [ ] Update `src/js/components/ZMachine.js` to use the replacement splitter.
 
 ### Upstream Package Upgrades To Remove Obsolete Transitives
 
@@ -203,7 +201,6 @@ This checklist captures the current package-removal plan based on the present `p
 
 - [ ] Phase 1: npm install and lockfile cleanup.
 - [ ] Phase 2: remove `shouldcomponentupdate-children`.
-- [ ] Phase 3: replace `react-split-pane`.
-- [ ] Phase 4: upgrade Electron and packaging dependencies.
-- [ ] Phase 5: clean up remaining build-tool dependencies.
-- [ ] Phase 6: migrate off `wasm-ffi`.
+- [ ] Phase 3: upgrade Electron and packaging dependencies.
+- [ ] Phase 4: clean up remaining build-tool dependencies.
+- [ ] Phase 5: migrate off `wasm-ffi`.
