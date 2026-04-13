@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { useParams } from 'react-router-dom';
-import SplitPane from 'react-split-pane';
+import { SplitPane } from 'react-split-pane';
 
 import ModalController from './ModalController';
 import Settings from './Settings';
