@@ -611,7 +611,7 @@ h1 {
     Main game transcript
 */
 
-.Pane1 {
+.transcript-panel {
     max-width: 100%;
 }
 
@@ -1352,17 +1352,14 @@ input.link {
     width: calc(100% - 55px);
 }
 
-.panel-hidden .Resizer,
-.panel-hidden .Pane2 .panels {
-    display: none !important;
+.split-layout {
+    height: 100%;
+    width: 100%;
 }
 
-.panel-hidden .Pane2 {
-    flex: 0 !important;
-}
-
-.panel-hidden .Pane1 {
-    flex: 1 1 auto !important;
+.debug-panel-shell {
+    height: 100%;
+    width: 100%;
 }
 
 .react-tabs__tab-panel {
@@ -1383,7 +1380,7 @@ input.link {
     z-index: 100;
 }
 
-.Resizer {
+.split-resize-handle {
     background: #999;
     opacity: .2;
     z-index: 1;
@@ -1391,13 +1388,14 @@ input.link {
     -moz-background-clip: padding;
     -webkit-background-clip: padding;
     background-clip: padding-box;
+    flex: 0 0 11px;
 }
 
-.Resizer:hover {
+.split-resize-handle:hover {
     transition: all 2s ease;
 }
 
-.Resizer.vertical {
+.split-resize-handle[data-panel-group-direction="horizontal"] {
     width: 11px;
     margin: 0 -5px;
     border-left: 5px solid rgba(255, 255, 255, 0);
@@ -1405,7 +1403,7 @@ input.link {
     cursor: col-resize;
 }
 
-.Resizer.vertical:hover {
+.split-resize-handle[data-panel-group-direction="horizontal"]:hover {
     border-left: 5px solid rgba(0, 0, 0, 0.5);
     border-right: 5px solid rgba(0, 0, 0, 0.5);
 }
@@ -2140,4 +2138,3 @@ textPath.path-label {
         color: #ddd;
     }
 }
-

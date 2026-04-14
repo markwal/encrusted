@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { useParams } from 'react-router-dom';
-import { SplitPane } from 'react-split-pane';
+import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import ModalController from './ModalController';
 import Settings from './Settings';
@@ -9,18 +9,34 @@ import Help from './Help';
 import Transcript from './Transcript';
 import DebugPanel from './DebugPanel';
 
-function debounce(fn, delay) {
-  let timeout;
+function getDefaultLayout() {
+  const raw = localStorage.getItem('setting:panel-layout');
 
-  return function(...args) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => fn(...args), delay);
-  };
+  if (!raw) {
+    return [65, 35];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 2 &&
+      parsed.every(size => Number.isFinite(size))
+    ) {
+      return parsed;
+    }
+  } catch (err) {
+    console.log('Error parsing panel layout:', err);
+  }
+
+  return [65, 35];
 }
 
 class ZMachine extends Component {
   constructor(props) {
     super(props);
+    console.log("ZMachine constructor");
     this.showSettings = this.props.openModal.bind(this, <Settings />);
     this.showHelp = this.props.openModal.bind(this, <Help />);
     this.saveScreenDimensions = this.props.saveScreenDimensions.bind(this);
@@ -50,18 +66,34 @@ class ZMachine extends Component {
 
     if (showTabs) containerName += ' show-tabs';
 
-    const str = localStorage.getItem('setting:size');
-    const size = (str) ? parseInt(str, 10) : 700;
-    const save = debounce(s => localStorage.setItem('setting:size', s), 500);
+    const defaultLayout = getDefaultLayout();
 
     return (
       <div className={containerName} ref={ (divElement) => { this.divElement = divElement } }>
         <ModalController />
 
-        <SplitPane split="vertical" defaultSize={size} onChange={save}>
+        {!showPanel &&
           <Transcript filename={this.props.filename} />
-          <DebugPanel />
-        </SplitPane>
+        }
+
+        {showPanel &&
+          <Group
+            orientation="horizontal"
+            className="split-layout"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={layout => localStorage.setItem('setting:panel-layout', JSON.stringify(layout))}
+          >
+            <Panel className="transcript-panel" minSize={40}>
+              <Transcript filename={this.props.filename} />
+            </Panel>
+
+            <Separator className="split-resize-handle" />
+
+            <Panel className="debug-panel-shell" minSize={20}>
+              <DebugPanel />
+            </Panel>
+          </Group>
+        }
       </div>
     );
   }
