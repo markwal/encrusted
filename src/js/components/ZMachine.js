@@ -72,11 +72,6 @@ class ZMachine extends Component {
       <div className={containerName} ref={ (divElement) => { this.divElement = divElement } }>
         <ModalController />
 
-        {!showPanel &&
-          <Transcript filename={this.props.filename} />
-        }
-
-        {showPanel &&
           <Group
             orientation="horizontal"
             className="split-layout"
@@ -93,7 +88,6 @@ class ZMachine extends Component {
               <DebugPanel />
             </Panel>
           </Group>
-        }
       </div>
     );
   }
