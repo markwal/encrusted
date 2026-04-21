@@ -339,7 +339,6 @@ impl hash::Hash for Instruction {
         H: hash::Hasher,
     {
         state.write_usize(self.addr);
-        state.finish();
     }
 }
 

@@ -20,6 +20,7 @@ pub trait UI {
     fn get_cursor(&mut self, zwindow: i16) -> (u16, u16);
 
     // only used by web ui
+    #[allow(dead_code)]
     fn flush(&mut self);
     fn message(&self, mtype: &str, msg: &str);
 }
@@ -42,4 +43,3 @@ impl Zstyle {
         zstyle
     }
 }
-

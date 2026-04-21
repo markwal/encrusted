@@ -47,9 +47,9 @@ pub struct Object {
 #[derive(Debug)]
 pub struct WordWrappedMemStream {
     // v6 only, and also optional there
-    wrap_width: u16,
-    line_width: u16,
-    total_width: u16,
+    _wrap_width: u16,
+    _line_width: u16,
+    _total_width: u16,
 }
 
 const MAX_MEM_STREAMS: usize = 16;
@@ -57,7 +57,7 @@ const MAX_MEM_STREAMS: usize = 16;
 #[derive(Debug)]
 pub struct MemStream {
     addr: u16,
-    wrap_info: Option<WordWrappedMemStream>,
+    _wrap_info: Option<WordWrappedMemStream>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -1701,11 +1701,11 @@ impl Zmachine {
         self.memory.write_word(addr as usize, 0);
         self.memory_streams.push(MemStream {
             addr: addr,
-            wrap_info: if wrap_width > 0 {
+            _wrap_info: if wrap_width > 0 {
                 Some(WordWrappedMemStream {
-                    wrap_width: wrap_width,
-                    line_width: 0,
-                    total_width: 0,
+                    _wrap_width: wrap_width,
+                    _line_width: 0,
+                    _total_width: 0,
                 })
             }
             else {
@@ -3095,12 +3095,12 @@ impl Zmachine {
 
             if let Some(addr) = branch {
                 follow(zvm, set, zvm.decode_instruction(addr));
-            };
+            }
 
             if let Some(addr) = next {
                 follow(zvm, set, zvm.decode_instruction(addr));
-            };
-        };
+            }
+        }
 
         follow(self, &mut set, first_instr);
 
