@@ -175,14 +175,14 @@ impl<T> Row<T> where T: PartialEq + Default {
         }
     }
 
-    pub fn iter_run_ranges(&self) -> RowIterRunRanges<T> {
+    pub fn iter_run_ranges(&self) -> RowIterRunRanges<'_, T> {
         RowIterRunRanges {
             row: self,
             cur: 0,
         }
     }
 
-    pub fn iter_width(&self, width: u16) -> RowIter<T> {
+    pub fn iter_width(&self, width: u16) -> RowIter<'_, T> {
         RowIter {
             row: self,
             iter: self.iter_run_ranges().enumerate(),
@@ -192,7 +192,7 @@ impl<T> Row<T> where T: PartialEq + Default {
     }
 
     #[allow(dead_code)]
-    pub fn iter(&self) -> RowIter<T> {
+    pub fn iter(&self) -> RowIter<'_, T> {
         self.iter_width(u16::MAX)
     }
 
