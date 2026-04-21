@@ -3,6 +3,7 @@ extern crate console_error_panic_hook;
 extern crate console_log;
 extern crate log;
 extern crate rand;
+extern crate rand_xorshift;
 extern crate serde_json;
 extern crate bitflags;
 extern crate unicode_segmentation;
@@ -20,9 +21,6 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_js_message)]
     fn js_message(mtype: &str, message: &str);
-
-    #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_rand)]
-    fn rand() -> u32;
 }
 
 mod buffer;
@@ -71,7 +69,12 @@ impl Engine {
         hook();
         let ui = WebUI::new();
         let mut opts = Options::default();
-        opts.rand_seed = [rand(), rand(), rand(), rand()];
+        opts.rand_seed = [
+            rand::random(),
+            rand::random(),
+            rand::random(),
+            rand::random(),
+        ];
 
         Engine {
             zvm: Zmachine::new(file.to_vec(), ui, opts),

@@ -1,6 +1,7 @@
 extern crate base64;
 extern crate clap;
 extern crate rand;
+extern crate rand_xorshift;
 extern crate regex;
 extern crate serde_json;
 extern crate bitflags;

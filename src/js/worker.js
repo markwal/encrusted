@@ -12,7 +12,6 @@ function sendWorkerMessage(type, msg) {
 }
 
 globalThis.__encrusted_js_message = sendWorkerMessage;
-globalThis.__encrusted_rand = () => Math.floor(Math.random() * 0xFFFF);
 
 
 function getEngine() {

@@ -11,8 +11,8 @@ use std::str;
 
 use base64;
 use enum_primitive::FromPrimitive;
-use rand;
 use rand::{Rng, SeedableRng};
+use rand_xorshift::XorShiftRng;
 use serde_json;
 use serde_json::Value;
 use bitflags::bitflags;
@@ -291,7 +291,7 @@ pub struct Zmachine {
     current_state: Option<(String, Vec<u8>)>,
     undos: Vec<(String, Vec<u8>)>,
     redos: Vec<(String, Vec<u8>)>,
-    rng: rand::XorShiftRng,
+    rng: XorShiftRng,
     pub terp_caps: TerpCaps,
     memory_streams: Vec<MemStream>,
     ostream_screen: bool,
@@ -299,6 +299,17 @@ pub struct Zmachine {
 }
 
 impl Zmachine {
+    fn rng_seed(words: [u32; 4]) -> [u8; 16] {
+        let mut seed = [0u8; 16];
+
+        for (index, word) in words.iter().enumerate() {
+            let start = index * 4;
+            seed[start..start + 4].copy_from_slice(&word.to_le_bytes());
+        }
+
+        seed
+    }
+
     pub fn new(data: Vec<u8>, ui: Box<dyn UI>, options: Options) -> Zmachine {
         let memory = Buffer::new(data);
         let version = memory.read_byte(0x00);
@@ -367,7 +378,7 @@ impl Zmachine {
             current_state: None,
             undos: Vec::new(),
             redos: Vec::new(),
-            rng: rand::SeedableRng::from_seed(options.rand_seed.clone()),
+            rng: XorShiftRng::from_seed(Self::rng_seed(options.rand_seed)),
             memory,
             options,
             terp_caps,
@@ -2571,7 +2582,7 @@ impl Zmachine {
         let range = range as i16;
 
         if range <= 0 {
-            self.rng.reseed([range as u32, 0, 0, 0]);
+            self.rng = XorShiftRng::from_seed(Self::rng_seed([range as u32, 0, 0, 0]));
             0
         } else if range == 1 {
             1
