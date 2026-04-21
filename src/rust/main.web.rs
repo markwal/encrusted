@@ -1,4 +1,5 @@
 extern crate base64;
+extern crate console_error_panic_hook;
 extern crate console_log;
 extern crate log;
 extern crate rand;
@@ -32,7 +33,6 @@ mod quetzal;
 mod traits;
 mod ui_web;
 mod zmachine;
-mod panic_hook;
 mod chgrid;
 
 use options::Options;
@@ -41,7 +41,7 @@ use zmachine::Zmachine;
 
 #[wasm_bindgen]
 pub fn hook() {
-    panic_hook::set_once();
+    console_error_panic_hook::set_once();
     let _ = console_log::init_with_level(log::Level::Debug);
 }
 

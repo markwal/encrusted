@@ -13,15 +13,6 @@ function sendWorkerMessage(type, msg) {
 
 globalThis.__encrusted_js_message = sendWorkerMessage;
 globalThis.__encrusted_rand = () => Math.floor(Math.random() * 0xFFFF);
-globalThis.__encrusted_js_error = (msg) => {
-  const err = new Error(msg);
-
-  // some browser devtools try to clean up stacktraces and ruin Rust symbols
-  // in the process so we just emit it as a string as part of the message
-  // plus we add some as well as some extra whitepace to thwart Safari
-  // heuristics to avoid having it mangle the message
-  console.error(msg + "\n\nStack:\n\n" + err.stack + "\n\n");
-};
 
 
 function getEngine() {
