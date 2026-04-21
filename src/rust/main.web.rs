@@ -1,24 +1,7 @@
-extern crate base64;
-extern crate console_error_panic_hook;
-extern crate console_log;
-extern crate log;
-extern crate rand;
-extern crate rand_xorshift;
-extern crate serde_json;
-extern crate bitflags;
-extern crate unicode_segmentation;
-extern crate wasm_bindgen;
-
-#[macro_use]
-extern crate serde_derive;
-
-#[macro_use]
-extern crate enum_primitive;
-
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-extern "C" {
+unsafe extern "C" {
     #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_js_message)]
     fn js_message(mtype: &str, message: &str);
 }
@@ -33,9 +16,9 @@ mod ui_web;
 mod zmachine;
 mod chgrid;
 
-use options::Options;
-use ui_web::WebUI;
-use zmachine::Zmachine;
+use crate::options::Options;
+use crate::ui_web::WebUI;
+use crate::zmachine::Zmachine;
 
 #[wasm_bindgen]
 pub fn hook() {

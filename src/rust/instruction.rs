@@ -1,6 +1,8 @@
 use std::fmt;
 use std::hash;
 
+use enum_primitive::{enum_from_primitive, enum_from_primitive_impl, enum_from_primitive_impl_ty};
+
 enum_from_primitive! {
     #[allow(non_camel_case_types)]
     #[derive(Clone, Copy, Debug, PartialEq)]

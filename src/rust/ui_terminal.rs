@@ -9,12 +9,12 @@ use crossterm::{cursor, execute, terminal, terminal::ClearType, tty::IsTty};
 use crossterm::style::{style, Color, Attribute, ContentStyle};
 use crossterm::event;
 use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
+use lazy_static::lazy_static;
 use regex::Regex;
 
-use chgrid::{Rect, count_graphemes};
-use termbuffer::{TermBuffer, WrapBuffer};
-
-use traits::{UI, Zstyle};
+use crate::chgrid::{Rect, count_graphemes};
+use crate::termbuffer::{TermBuffer, WrapBuffer};
+use crate::traits::{UI, Zstyle};
 
 lazy_static! {
     static ref ANSI_RE: Regex = Regex::new(

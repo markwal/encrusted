@@ -26,7 +26,7 @@ pub trait UI {
 }
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
     pub struct Zstyle: u16 {
         const ROMAN = 0;
         const REVERSE = 1;
@@ -38,8 +38,6 @@ bitflags! {
 
 impl Zstyle {
     pub fn new(bits: u16) -> Zstyle {
-        let mut zstyle = Zstyle::ROMAN;
-        zstyle.bits = bits;
-        zstyle
+        Zstyle::from_bits_retain(bits)
     }
 }

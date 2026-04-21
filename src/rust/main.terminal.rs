@@ -1,28 +1,9 @@
-extern crate base64;
-extern crate clap;
-extern crate rand;
-extern crate rand_xorshift;
-extern crate regex;
-extern crate serde_json;
-extern crate bitflags;
-extern crate crossterm;
-extern crate unicode_segmentation;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate enum_primitive;
-
-#[macro_use]
-extern crate serde_derive;
-
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 use std::process;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 mod buffer;
 mod frame;
@@ -35,32 +16,43 @@ mod zmachine;
 mod chgrid;
 mod termbuffer;
 
-use options::Options;
-use ui_terminal::TerminalUI;
-use zmachine::Zmachine;
+use crate::options::Options;
+use crate::ui_terminal::TerminalUI;
+use crate::zmachine::Zmachine;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 
 fn main() {
-    let matches = App::new("encrusted")
+    let matches = Command::new("encrusted")
         .version(VERSION)
         .about("A zmachine interpreter")
         .arg(
-            Arg::with_name("FILE")
+            Arg::new("FILE")
                 .help("Sets the story file to run")
                 .required(false)
         )
         .arg(
-            Arg::with_name("width")
-                .short("w")
+            Arg::new("width")
+                .short('w')
+                .long("width")
                 .help("sets the column width for wrapping text (default: 60)")
-                .takes_value(true)
+                .num_args(1)
         )
         .get_matches();
 
-    let path = Path::new(matches.value_of("FILE").unwrap_or("assets/zork2.z3"));
-    let mut width = matches.value_of("width").unwrap_or("60").parse::<u16>().unwrap_or(1);
+    let path = Path::new(
+        matches
+            .get_one::<String>("FILE")
+            .map(String::as_str)
+            .unwrap_or("assets/zork2.z3"),
+    );
+    let mut width = matches
+        .get_one::<String>("width")
+        .map(String::as_str)
+        .unwrap_or("60")
+        .parse::<u16>()
+        .unwrap_or(1);
 
     if (1..10).contains(&width) {
         println!("\nExpected a valued from 10 to 65535 for width or 0=full terminal width.");

@@ -1,11 +1,12 @@
 use std::boxed::Box;
 use std::fmt::Write;
 
+use enum_primitive::{enum_from_primitive, enum_from_primitive_impl, enum_from_primitive_impl_ty};
 use serde_json;
 
-use js_message;
-use traits::{UI, Zstyle};
-use chgrid::{Rect, ChGrid};
+use crate::chgrid::{Rect, ChGrid};
+use crate::js_message;
+use crate::traits::{UI, Zstyle};
 
 #[allow(dead_code)]
 #[derive(Debug)]

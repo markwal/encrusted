@@ -36,7 +36,7 @@ use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Pri
 use crossterm::event;
 use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
-use chgrid::{Rect, ChGrid, Row, count_graphemes};
+use crate::chgrid::{Rect, ChGrid, Row, count_graphemes};
 
 #[derive(Debug)]
 /// Terminal UI text and style buffer

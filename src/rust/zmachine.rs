@@ -9,24 +9,27 @@ use std::path::PathBuf;
 use std::process;
 use std::str;
 
-use base64;
-use enum_primitive::FromPrimitive;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
+use enum_primitive::{
+    FromPrimitive, enum_from_primitive, enum_from_primitive_impl, enum_from_primitive_impl_ty,
+};
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use serde_json::Value;
 use bitflags::bitflags;
 
-use buffer::Buffer;
-use frame::Frame;
-use instruction::Branch;
-use instruction::Instruction;
-use instruction::Opcode;
-use instruction::Operand;
-use instruction::OperandType;
-use options::Options;
-use quetzal::QuetzalSave;
-use traits::{UI, Zstyle};
+use crate::buffer::Buffer;
+use crate::frame::Frame;
+use crate::instruction::Branch;
+use crate::instruction::Instruction;
+use crate::instruction::Opcode;
+use crate::instruction::Operand;
+use crate::instruction::OperandType;
+use crate::options::Options;
+use crate::quetzal::QuetzalSave;
+use crate::traits::{UI, Zstyle};
 
 #[derive(Debug)]
 enum ZStringState {
@@ -231,7 +234,7 @@ enum_from_primitive! {
 }
 
 bitflags! {
-    #[derive(Default)]
+    #[derive(Clone, Copy, Default)]
     struct TerpConfig : u8 {
         /* V3 from the game to the interpreter */
         const BYTE_SWAPPED = 0x01; /* Story file is byte swapped         - V3  */
@@ -749,7 +752,7 @@ impl Zmachine {
             }
         }
         self.memory.write_byte(HeaderOffset::CONFIG as usize,
-            self.memory.read_byte(HeaderOffset::CONFIG as usize) | config.bits);
+            self.memory.read_byte(HeaderOffset::CONFIG as usize) | config.bits());
 
 //       TODO self.memory.write_byte(H_FLAGS, h_flags);
 //
@@ -1982,7 +1985,7 @@ impl Zmachine {
     // Web UI only
     #[allow(dead_code)]
     pub fn restore(&mut self, data: &str) {
-        let state = base64::decode(&data);
+        let state = STANDARD.decode(&data);
 
         // cancel restore (sending an empty string or if base64 decode fails)
         if data.is_empty() || state.is_err() {
@@ -1998,14 +2001,14 @@ impl Zmachine {
     // Loads a saved state _without_ processing a restore result (like the above)
     #[allow(dead_code)]
     pub fn load_savestate(&mut self, data: &str) {
-        let state = base64::decode(data).unwrap();
+        let state = STANDARD.decode(data).unwrap();
         self.restore_state(state.as_slice());
     }
 
     // Web UI only
     #[allow(dead_code)]
     fn send_save_message(&mut self, msg_type: &str, state: &[u8]) {
-        let b64 = base64::encode(&state);
+        let b64 = STANDARD.encode(&state);
 
         let (location, info) = self.get_status();
         let status = [&location, " - ", &info].concat();
@@ -2587,7 +2590,7 @@ impl Zmachine {
         } else if range == 1 {
             1
         } else {
-            (self.rng.gen::<f32>() * f32::from(range)).ceil() as u16
+            (self.rng.r#gen::<f32>() * f32::from(range)).ceil() as u16
         }
     }
 

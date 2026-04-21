@@ -2,7 +2,7 @@
 authors = ["Sterling DeMille <sterlingdemille+github@gmail.com>"]
 name = "encrusted"
 version = "1.1.0"
-edition = "2015"
+edition = "2024"
 description = "A z-machine (interpreter) for Infocom-era text adventure games"
 repository = "https://github.com/demille/encrusted"
 readme = "README.md"
@@ -22,14 +22,13 @@ lto = true
 opt-level = 's'
 
 [dependencies]
-base64 = "0.10.1"
+base64 = "0.22.1"
+bitflags = "2.10.0"
 enum_primitive = "0.1.1"
 rand = "0.8.5"
 rand_xorshift = "0.3.0"
-serde = "1.0.88"
-serde_derive = "1.0.88"
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.38"
-bitflags = "1.2.1"
 unicode-segmentation = "1.7.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -40,7 +39,7 @@ log = "0.4.28"
 wasm-bindgen = "0.2.118"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-clap = "2.32.0"
+clap = { version = "4.5.50", features = ["std"] }
 lazy_static = "1.2.0"
 regex = "1.1.0"
 crossterm = "0.19.0"
