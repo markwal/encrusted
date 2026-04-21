@@ -17,6 +17,12 @@ module.exports = {
     filename: '[name].js',
     sourceMapFilename: '[name].map',
     path: path.join(__dirname, '/build'),
+    publicPath: '/encrusted/',
+    webassemblyModuleFilename: '[modulehash].wasm',
+  },
+
+  experiments: {
+    asyncWebAssembly: true,
   },
 
   module: {

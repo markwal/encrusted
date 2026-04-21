@@ -56,14 +56,22 @@ rustup target add wasm32-unknown-unknown
 # Runs webpack dev server on port 8000
 npm run dev
 
-# Build .wasm module in debug mode
+# Build the wasm-bindgen package in debug mode
 npm run build:debug
 
-# Or build all in release mode & bundle JS into the ./build directory
+# Or build all in release mode and bundle JS into the ./build directory
 npm run release
 ```
 
-The current web build still uses Cargo's raw `web.wasm` output directly. The planned `wasm-bindgen` migration and environment checklist are tracked in `WASM_BINDGEN_MIGRATION.md`.
+The web build uses `cargo build --target wasm32-unknown-unknown` plus `wasm-bindgen`, so you also need the CLI installed:
+
+```sh
+cargo install -f wasm-bindgen-cli
+```
+
+Rust-side wasm logging now uses the standard `log` facade with `console_log`, and Rust panics are still forwarded through the custom panic hook.
+
+The migration notes and remaining follow-up items are tracked in `WASM_BINDGEN_MIGRATION.md`.
 
 
 ### Tests

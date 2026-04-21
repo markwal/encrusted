@@ -3,6 +3,7 @@
 **/*.rs.bk
 /build
 /electron
+/pkg
 /assets
 /src/assets
 /dist

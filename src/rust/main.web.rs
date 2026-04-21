@@ -1,8 +1,11 @@
 extern crate base64;
+extern crate console_log;
+extern crate log;
 extern crate rand;
 extern crate serde_json;
 extern crate bitflags;
 extern crate unicode_segmentation;
+extern crate wasm_bindgen;
 
 #[macro_use]
 extern crate serde_derive;
@@ -10,15 +13,15 @@ extern crate serde_derive;
 #[macro_use]
 extern crate enum_primitive;
 
-use std::cell::RefCell;
-use std::ffi::{CStr, CString};
-use std::os::raw::{c_char, c_void};
-use std::io;
+use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen]
 extern "C" {
-    fn js_message(mtype: *mut c_char, message: *mut c_char);
+    #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_js_message)]
+    fn js_message(mtype: &str, message: &str);
+
+    #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_rand)]
     fn rand() -> u32;
-    fn consolelog(ptr: *const c_char);
 }
 
 mod buffer;
@@ -36,57 +39,10 @@ use options::Options;
 use ui_web::WebUI;
 use zmachine::Zmachine;
 
-// thread local mutable global
-thread_local!(static ZVM: RefCell<Option<Zmachine>> = RefCell::new(None););
-
-#[no_mangle]
+#[wasm_bindgen]
 pub fn hook() {
     panic_hook::set_once();
-}
-
-pub fn _consolelog(buf: &str) -> io::Result<()> {
-    let cstring = CString::new(buf)?;
-
-    unsafe {
-        consolelog(cstring.as_ptr());
-    }
-
-    Ok(())
-}
-
-#[no_mangle]
-pub fn allocate(length: usize) -> *mut c_void {
-    let mut v = Vec::with_capacity(length);
-    let ptr = v.as_mut_ptr();
-    std::mem::forget(v);
-    ptr
-}
-
-#[no_mangle]
-pub fn deallocate(ptr: *mut c_void, length: usize) {
-    unsafe {
-        std::mem::drop(Vec::from_raw_parts(ptr, 0, length));
-    }
-}
-
-fn get_string(ptr: *mut c_char) -> String {
-    let data = unsafe { CStr::from_ptr(ptr) };
-
-    data.to_string_lossy().into_owned()
-}
-
-fn with<F, R>(func: F) -> R
-where
-    F: FnOnce(&mut Zmachine) -> R,
-{
-    ZVM.with(|cell| {
-        let mut wrapper = cell.borrow_mut();
-        let zvm: &mut Zmachine = wrapper.as_mut().expect(
-            "Error unwrapping zmachine from cell"
-        );
-
-        func(zvm)
-    })
+    let _ = console_log::init_with_level(log::Level::Debug);
 }
 
 fn push_updates(zvm: &mut Zmachine) {
@@ -103,85 +59,72 @@ fn push_updates(zvm: &mut Zmachine) {
     }
 }
 
-#[no_mangle]
-pub fn create(file_ptr: *mut u8, len: usize) {
-    ZVM.with(|cell| {
-        assert!(!file_ptr.is_null());
+#[wasm_bindgen]
+pub struct Engine {
+    zvm: Zmachine,
+}
 
-        let data = unsafe { std::vec::Vec::from_raw_parts(file_ptr, len, len) };
+#[wasm_bindgen]
+impl Engine {
+    #[wasm_bindgen(constructor)]
+    pub fn new(file: &[u8]) -> Engine {
+        hook();
         let ui = WebUI::new();
         let mut opts = Options::default();
-        opts.rand_seed = unsafe { [rand(), rand(), rand(), rand()] };
+        opts.rand_seed = [rand(), rand(), rand(), rand()];
 
-        let zvm = Zmachine::new(data, ui, opts);
-        *cell.borrow_mut() = Some(zvm);
-    });
-}
+        Engine {
+            zvm: Zmachine::new(file.to_vec(), ui, opts),
+        }
+    }
 
-#[no_mangle]
-pub fn step() -> bool {
-    with(|zvm| {
-        let done = zvm.step();
+    pub fn step(&mut self) -> bool {
+        let done = self.zvm.step();
 
-        zvm.ui.flush();
-        push_updates(zvm);
+        self.zvm.ui.flush();
+        push_updates(&mut self.zvm);
         done
-    })
-}
+    }
 
-#[no_mangle]
-pub fn feed(input_ptr: *mut c_char) {
-    with(|zvm| zvm.handle_input(get_string(input_ptr)));
-}
+    pub fn feed(&mut self, input: &str) {
+        self.zvm.handle_input(input.to_owned());
+    }
 
-#[no_mangle]
-pub fn restore(b64_ptr: *mut c_char) {
-    with(|zvm| zvm.restore(&get_string(b64_ptr)));
-}
+    pub fn restore(&mut self, b64: &str) {
+        self.zvm.restore(b64);
+    }
 
-#[no_mangle]
-pub fn load_savestate(b64_ptr: *mut c_char) {
-    with(|zvm| zvm.load_savestate(&get_string(b64_ptr)));
-}
+    pub fn load_savestate(&mut self, b64: &str) {
+        self.zvm.load_savestate(b64);
+    }
 
-#[no_mangle]
-pub fn get_updates() {
-    with(|zvm| push_updates(zvm));
-}
+    pub fn get_updates(&mut self) {
+        push_updates(&mut self.zvm);
+    }
 
-#[no_mangle]
-pub fn undo() -> bool {
-    with(|zvm| zvm.undo())
-}
+    pub fn undo(&mut self) -> bool {
+        self.zvm.undo()
+    }
 
-#[no_mangle]
-pub fn redo() -> bool {
-    with(|zvm| zvm.redo())
-}
+    pub fn redo(&mut self) -> bool {
+        self.zvm.redo()
+    }
 
-#[no_mangle]
-pub fn enable_instruction_logs(enabled: bool) {
-    with(|zvm| zvm.options.log_instructions = enabled);
-}
+    pub fn enable_instruction_logs(&mut self, enabled: bool) {
+        self.zvm.options.log_instructions = enabled;
+    }
 
-#[no_mangle]
-pub fn get_object_details(obj_num: u16) -> Box<String> {
-    with(|zvm| Box::new(zvm.debug_object_details(obj_num as u16)))
-}
+    pub fn get_object_details(&self, obj_num: u16) -> String {
+        self.zvm.debug_object_details(obj_num)
+    }
 
-#[no_mangle]
-pub fn flush_log() {
-    ZVM.with(|cell| {
-        let ptr = cell.as_ptr();
-        let opt: &Option<Zmachine> = unsafe { &mut *ptr };
-        let zvm = opt.as_ref().unwrap();
+    pub fn flush_log(&self) {
+        self.zvm.ui.message("instructions", &self.zvm.instr_log);
+    }
 
-        zvm.ui.message("instructions", &zvm.instr_log);
-    });
-}
-
-#[no_mangle]
-pub fn set_terp_caps(terp_caps_json: *mut c_char) {
-    let v: serde_json::Value = serde_json::from_str(&get_string(terp_caps_json)).expect("Incorrect intepreter capabilities");
-    with(|zvm| zvm.set_terp_caps(v));
+    pub fn set_terp_caps(&mut self, terp_caps_json: &str) {
+        let v: serde_json::Value = serde_json::from_str(terp_caps_json)
+            .expect("Incorrect interpreter capabilities");
+        self.zvm.set_terp_caps(v);
+    }
 }

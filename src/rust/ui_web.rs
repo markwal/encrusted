@@ -1,5 +1,4 @@
 use std::boxed::Box;
-use std::ffi::CString;
 use std::fmt::Write;
 
 use serde_json;
@@ -222,14 +221,7 @@ impl UI for WebUI {
     }
 
     fn message(&self, mtype: &str, msg: &str) {
-        let type_ptr = CString::new(mtype).unwrap().into_raw();
-        let msg_ptr = CString::new(msg).unwrap().into_raw();
-
-        unsafe {
-            js_message(type_ptr, msg_ptr);
-            CString::from_raw(type_ptr); // free memory
-            CString::from_raw(msg_ptr);
-        }
+        js_message(mtype, msg);
     }
 
     fn erase_window(&mut self, window: i16) {

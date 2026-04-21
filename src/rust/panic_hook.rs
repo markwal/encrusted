@@ -1,19 +1,14 @@
 use std::panic;
-use std::ffi::CString;
-use std::os::raw::c_char;
+use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen]
 extern "C" {
-    fn js_error(ptr: *const c_char);
+    #[wasm_bindgen(js_namespace = globalThis, js_name = __encrusted_js_error)]
+    fn js_error(message: &str);
 }
 
 fn emit_js_error(buf: &str) {
-    if let Ok(cstring) = CString::new(buf) {
-        unsafe {
-            js_error(cstring.as_ptr());
-        }
-    }
-    // we're panicking already, so we'll just eat it since sending it to stderr
-    // doesn't go anywhere either (or we wouldn't need the hook)
+    js_error(buf);
 }
 
 /// A panic hook for use with
@@ -22,7 +17,7 @@ fn emit_js_error(buf: &str) {
 /// [`console.error`](https://developer.mozilla.org/en-US/docs/Web/API/Console/error).
 ///
 /// On non-wasm targets, prints the panic to `stderr`.
-pub fn hook(info: &panic::PanicInfo) {
+pub fn hook(info: &panic::PanicHookInfo<'_>) {
     let msg = info.to_string();
 
     emit_js_error(&msg);

@@ -17,6 +17,12 @@ module.exports = {
     filename: '[name].js',
     sourceMapFilename: '[name].map',
     path: path.join(__dirname, '/electron'),
+    publicPath: './',
+    webassemblyModuleFilename: '[modulehash].wasm',
+  },
+
+  experiments: {
+    asyncWebAssembly: true,
   },
 
   module: {
@@ -57,7 +63,6 @@ module.exports = {
         { from: './src/*.css', to: './[name][ext]' },
         { from: './src/img/**.*', to: './img/[name][ext]' },
         { from: './src/electron/*.*', to: './[name][ext]' },
-        { from: './build/*.wasm', to: './[name][ext]' },
       ],
     }),
   ]
