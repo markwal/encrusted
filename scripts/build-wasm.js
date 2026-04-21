@@ -43,10 +43,16 @@ run('cargo', [
   ...(mode === 'release' ? ['--release'] : []),
 ]);
 
-run('wasm-bindgen', [
+const wasmBindgenArgs = [
   rawWasm,
   '--out-dir',
   pkgDir,
   '--target',
   'bundler',
-]);
+];
+
+if (mode === 'debug') {
+  wasmBindgenArgs.push('--debug', '--keep-debug');
+}
+
+run('wasm-bindgen', wasmBindgenArgs);
