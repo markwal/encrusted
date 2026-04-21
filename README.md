@@ -47,22 +47,23 @@ Use `save` and `restore` to save your progress.
 
 
 ### Build
-WebAssembly/React web version (requires node & rust nightly):
+WebAssembly/React web version (requires node and stable Rust with the `wasm32-unknown-unknown` target):
 
 ```sh
-# If you haven't added nightly or the wasm32 target:
-rustup toolchain install nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly
+# If you haven't added the wasm32 target yet:
+rustup target add wasm32-unknown-unknown
 
 # Runs webpack dev server on port 8000
 npm run dev
 
-# Build .wasm module with rust nightly, debug mode
+# Build .wasm module in debug mode
 npm run build:debug
 
 # Or build all in release mode & bundle JS into the ./build directory
 npm run release
 ```
+
+The current web build still uses Cargo's raw `web.wasm` output directly. The planned `wasm-bindgen` migration and environment checklist are tracked in `WASM_BINDGEN_MIGRATION.md`.
 
 
 ### Tests

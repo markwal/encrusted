@@ -186,6 +186,7 @@ This checklist captures the current package-removal plan based on the present `p
 ### High-Effort Architecture Migration
 
 - [ ] Plan a migration away from `wasm-ffi`.
+- [ ] Use `WASM_BINDGEN_MIGRATION.md` as the detailed implementation and environment-prep plan for this workstream.
 - [ ] Replace the `wasm-ffi` bridge in `src/js/worker.js` with a modern wasm binding approach.
 - [ ] Update the Rust wasm export layer to match the new binding strategy.
 - [ ] Re-verify the browser and Electron wasm startup flows after the bridge migration.
