@@ -9,44 +9,71 @@ const initialTranscript = {
   quit: false,
 };
 
+function updateLastMove(state, move) {
+  if (!state.moves.length)
+    return [];
+
+  const olderMoves = state.moves.slice(0, -1);
+  const recentMove = Object.assign({}, state.moves.slice(-1)[0], move);
+
+  return [...olderMoves, recentMove];
+}
+
 function transcript(state = initialTranscript, action) {
   switch (action.type) {
     case 'TS::TEXT':
+      const nextMove = { text: action.text, input: '', header: {left: '', right: ''} };
+
       return Object.assign({}, state, {
-        moves: [...state.moves, { text: action.text, input: '' }],
-        undos: [],
+        moves: [...state.moves, nextMove],
+        undos: []
       });
 
     case 'TS::SUBMIT':
       const input = action.input.trim();
-      const updated = Object.assign({}, state.moves.pop(), { input });
-
       const history = (input && state.history.slice(-1)[0] !== input)
         ? [...state.history, input]
         : state.history;
 
       return Object.assign({}, state, {
-        moves: [...state.moves, updated],
-        history,
-      });
-
-    case 'TS::UNDO':
-      return Object.assign({}, state, {
-        undos: [...state.undos, state.moves.pop()],
-        moves: [...state.moves],
-      });
-
-    case 'TS::REDO':
-      return Object.assign({}, state, {
-        moves: [...state.moves, state.undos.pop()],
-        undos: [...state.undos],
+        moves: updateLastMove(state, { input }),
+        history
       });
 
     case 'TS::HEADER':
       const [left, right] = JSON.parse(action.data);
+      const header = { left, right };
 
       return Object.assign({}, state, {
-        header: { left, right },
+        moves: updateLastMove(state, { header }),
+        header
+      });
+
+    case 'TS::UNDO':
+      // can't undo the first move, which is the initial text
+      if (state.moves.length < 2) return state;
+
+      const poppedMoves = state.moves.slice(0, -1);
+      const undone = state.moves[state.moves.length - 1];
+      const undoLocation = poppedMoves.length && poppedMoves[poppedMoves.length - 1].location;
+      const newHeader = poppedMoves[poppedMoves.length - 1].header;
+
+      return Object.assign({}, state, {
+        undos: [...state.undos, undone],
+        moves: poppedMoves,
+        header: newHeader
+      });
+
+    case 'TS::REDO':
+      if (!state.undos.length) return state;
+
+      const redo = state.undos[state.undos.length - 1];
+      const redoUndos = state.undos.slice(0, -1);
+
+      return Object.assign({}, state, {
+        moves: [...state.moves, redo],
+        undos: redoUndos,
+        header: redo && redo.header ? redo.header : { left: '', right: '' }
       });
 
     case 'TS::HEADER::SIZE':

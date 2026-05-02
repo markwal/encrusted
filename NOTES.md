@@ -68,6 +68,10 @@ UI undo and redo manipulate the transcript stacks only:
 - `TS::UNDO` moves the last item from `moves` to `undos`.
 - `TS::REDO` moves the last item from `undos` back to `moves`.
 
+When a move has a stored location, the transcript reducer also writes that
+location into `header.left`. That keeps the visible header synchronized with
+the active move when undoing, redoing, and restoring persisted transcript text.
+
 The middleware also sends `undo` and `redo` messages to the wasm worker. The
 worker calls `Engine.undo()` or `Engine.redo()`, which delegate to the Rust
 `Zmachine`. Rust keeps the real VM history as serialized Quetzal states:

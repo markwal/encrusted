@@ -1292,6 +1292,10 @@ impl Zmachine {
     }
 
     pub fn update_status_bar(&mut self) {
+        if self.version > 3 && self.location == 0 {
+            return;
+        }
+
         let (left, right) = self.get_status();
         self.ui.set_status_bar(&left, &right);
     }
@@ -1323,6 +1327,7 @@ impl Zmachine {
         self.pc = save.pc;
         self.frames = save.frames;
         self.memory.write(0, save.memory.as_slice());
+        self.location = 0;
     }
 
     pub fn undo(&mut self) -> bool {
@@ -2527,8 +2532,9 @@ impl Zmachine {
         }
 
         // and save the current state
-        let location = if self.version <= 3 { self.get_object_name(self.read_global(0)) } else { self.get_location_name() };
+        let location = if self.version <= 3 { self.get_object_name(self.read_global(0)) } else { String::new()};
         let state = self.make_save_state(instr.next);
+        // (note: this is technically a savestate of the state right after the read instruction, but it makes more sense to call it a "current state" since it's saved right after processing user input and before the next instruction)
         self.current_state = Some((location, state));
     }
 
