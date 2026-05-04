@@ -32,7 +32,7 @@ use std::io::{Write, stdout};
 use std::cmp;
 use std::iter::Peekable;
 use crossterm::{QueueableCommand, cursor, execute, queue, terminal};
-use crossterm::style::{style, Color, Attribute, ContentStyle, StyledContent, Print};
+use crossterm::style::{style, Attribute, Color, ContentStyle, Print, StyledContent, Stylize};
 use crossterm::event;
 use unicode_segmentation::{UnicodeSegmentation, UWordBoundIndices};
 
@@ -455,9 +455,9 @@ impl<'a> Iterator for WordWrapIter<'a> {
 pub fn test_termbuffer() {
     let mut row = Row::<ContentStyle>::new();
     row.overwrite_at(3, "hello", &ContentStyle::new().attribute(Attribute::Bold));
-    row.overwrite_at(10, "there", &ContentStyle::new().background(Color::Red).attribute(Attribute::SlowBlink));
+    row.overwrite_at(10, "there", &ContentStyle::new().on(Color::Red).attribute(Attribute::SlowBlink));
     row.overwrite_at(7, "wow", &ContentStyle::new().attribute(Attribute::Underlined));
-    row.overwrite_at(12, "holymoly", &ContentStyle::new().background(Color::Blue));
+    row.overwrite_at(12, "holymoly", &ContentStyle::new().on(Color::Blue));
     println!("row: {:?}", row);
 
     for r in row.iter_run_ranges() {
@@ -506,7 +506,7 @@ pub fn test_termbuffer() {
         width: cols,
         height: rows,
     });
-    buf.print_at(10, 5, "This is a test!", &ContentStyle::new().background(Color::Blue));
+    buf.print_at(10, 5, "This is a test!", &ContentStyle::new().on(Color::Blue));
     execute!(stdout(), cursor::MoveTo(0, rows - 3)).unwrap();
 }
 
@@ -521,7 +521,7 @@ mod tests {
         let mut iter = row.iter_run_ranges();
         assert_eq!(Some(0..30), iter.next());
 
-        row.overwrite_at(15, &"b".repeat(5), &ContentStyle::new().background(Color::Red));
+        row.overwrite_at(15, &"b".repeat(5), &ContentStyle::new().on(Color::Red));
         println!("{:?}", row);
         let mut iter = row.iter_run_ranges();
         assert_eq!(Some(0..15), iter.next());

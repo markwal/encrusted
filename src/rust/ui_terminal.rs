@@ -6,7 +6,7 @@ use std::io::{stdout, Write};
 use std::process;
 
 use crossterm::{cursor, execute, terminal, terminal::ClearType, tty::IsTty};
-use crossterm::style::{style, Color, Attribute, ContentStyle};
+use crossterm::style::{style, Attribute, Color, ContentStyle, Stylize};
 use crossterm::event;
 use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers, MouseEvent};
 use lazy_static::lazy_static;
@@ -178,16 +178,16 @@ impl TerminalUI {
 
     fn char_from_key_event(key: KeyEvent) -> char {
         match key {
-            KeyEvent { code: KeyCode::Char(ch @ 'a'..='z'), modifiers } =>
+            KeyEvent { code: KeyCode::Char(ch @ 'a'..='z'), modifiers, .. } =>
                 if !(modifiers & KeyModifiers::ALT).is_empty() as bool { zscii::BAD }
                 else if !(modifiers & KeyModifiers::CONTROL).is_empty() { Self::char_from_ucs2(ch as u16 - 'a' as u16 + 1) }
                 else if !(modifiers & KeyModifiers::SHIFT).is_empty() { ch.to_uppercase().next().unwrap_or('?') }
                 else { ch },
-            KeyEvent { code: KeyCode::Char(ch @ 'A'..='Z'), modifiers } =>
+            KeyEvent { code: KeyCode::Char(ch @ 'A'..='Z'), modifiers, .. } =>
                 if !(modifiers & KeyModifiers::ALT).is_empty() as bool { zscii::BAD }
                 else if !(modifiers & KeyModifiers::CONTROL).is_empty() { Self::char_from_ucs2(ch as u16 - 'A' as u16 + 1) }
                 else { ch },
-            KeyEvent { code: KeyCode::Char(ch), modifiers: KeyModifiers::NONE } => { ch },
+            KeyEvent { code: KeyCode::Char(ch), modifiers: KeyModifiers::NONE, .. } => { ch },
             KeyEvent { code: KeyCode::Esc, .. } => { zscii::ESCAPE },
             KeyEvent { code: KeyCode::Up, .. } => { zscii::ARROW_UP },
             KeyEvent { code: KeyCode::Down, .. } => { zscii::ARROW_DOWN },
@@ -276,7 +276,7 @@ impl UI for TerminalUI {
             style = style.attribute(Attribute::Reverse);
         }
         if !(zstyle & Zstyle::BOLDFACE).is_empty() {
-            style = style.foreground(Color::Red).attribute(Attribute::Bold);
+            style = style.with(Color::Red).attribute(Attribute::Bold);
         }
         if !(zstyle & Zstyle::EMPHASIS).is_empty() {
             style = style.attribute(Attribute::Italic);
