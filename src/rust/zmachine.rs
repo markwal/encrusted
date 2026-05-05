@@ -1,6 +1,5 @@
 use std::boxed::Box;
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fmt;
 use std::fmt::Write as FmtWrite;
 use std::fs::File;
@@ -13,6 +12,8 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use enum_primitive::{
     FromPrimitive, enum_from_primitive, enum_from_primitive_impl, enum_from_primitive_impl_ty,
 };
+use log::debug;
+use log::trace;
 use rand::{Rng, SeedableRng};
 use rand_xorshift::XorShiftRng;
 use serde::{Deserialize, Serialize};
@@ -394,6 +395,10 @@ impl Zmachine {
         zvm.populate_dictionary();
 
         zvm.set_initial_pc();
+
+        let state = zvm.make_save_state(zvm.pc);
+        let (location, _) = zvm.get_status();
+        zvm.current_state = Some((location, state));
 
         zvm
     }
@@ -1556,10 +1561,9 @@ impl Zmachine {
 
         // ~mutably~ gets the arguments (might pop stack)
         let args = self.get_arguments(instr.operands.as_slice());
+        let save_pc = self.pc;
 
-        if env::var("DEBUG").is_ok() {
-            println!("\x1B[97m{}\x1B[0m", instr);
-        }
+        trace!("{}", instr);
 
         // Match instructions that return values for storing or branching (or both)
         // `result` is an option. either a matched instruction or none (no match)
@@ -1682,7 +1686,11 @@ impl Zmachine {
         // advance pc to the next instruction
         // (but not for jumps, calls, save/restore, or anything with special needs)
         if instr.advances() && instr.should_advance(self.version) {
-            self.pc = instr.next;
+            if self.pc != save_pc {
+                debug!("{} - changed the pc, so ignoring instr.next", instr);
+            } else {
+                self.pc = instr.next;
+            }
         }
     }
 

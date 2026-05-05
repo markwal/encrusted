@@ -24,6 +24,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 
 fn main() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+
     let matches = Command::new("encrusted")
         .version(VERSION)
         .about("A zmachine interpreter")
